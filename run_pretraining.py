@@ -1,6 +1,8 @@
 # coding=utf-8
 # Copyright 2018 The Google AI Language Team Authors.
 #
+# Updated 2019 by Dylan Bourgeois (@dtsbourg)
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -254,7 +256,7 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
       masked_lm_predictions = tf.argmax(masked_lm_log_probs, axis=-1, output_type=tf.int32)
 
       masked_lm_predictions = tf.reshape(masked_lm_predictions, [1, masked_lm_positions.shape[-1]])
-      
+
       attention_output = model.get_attention_output()[-1]
       tf.logging.info("-------- -1 ---------")
       tf.logging.info(attention_output)
@@ -262,12 +264,12 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
    #   tf.logging.info("-------- msk ---------")
    #   tf.logging.info(label_ids)
   #    tf.logging.info(masked_lm_predictions)
-#      attention_output = tf.reshape(attention_output[-1], [1, attention_output[-1].shape[-1]]) 
+#      attention_output = tf.reshape(attention_output[-1], [1, attention_output[-1].shape[-1]])
  #     tf.logging.info(attention_output)
       predictions = {
         "masked_lm_predictions": masked_lm_predictions,
         "masked_lm_positions": masked_lm_positions,
-        "label_ids": label_ids,  
+        "label_ids": label_ids,
         "input_ids": input_ids,
         "attention_outputs": attention_output
       }
@@ -604,7 +606,7 @@ def main(_):
       for key in sorted(result.keys()):
         tf.logging.info("  %s = %s", key, str(result[key]))
         writer.write("%s = %s\n" % (key, str(result[key])))
-  
+
   if FLAGS.do_predict:
     is_per_host = tf.contrib.tpu.InputPipelineConfig.PER_HOST_V2
     run_config = tf.contrib.tpu.RunConfig(
@@ -634,28 +636,28 @@ def main(_):
       predict_batch_size=FLAGS.predict_batch_size)
 
     input_fn = input_fn_builder(
-      input_files=validation_files, 
-      max_seq_length=FLAGS.max_seq_length, 
+      input_files=validation_files,
+      max_seq_length=FLAGS.max_seq_length,
       max_predictions_per_seq=FLAGS.max_predictions_per_seq,
       is_training=False)
 
-    tf.logging.info("************ RUNNING INFERENCE STEP **************")    
+    tf.logging.info("************ RUNNING INFERENCE STEP **************")
     with tf.gfile.GFile(os.path.join(FLAGS.output_dir, 'eval_results_masked_lm.txt'), 'w') as writer:
         writer.write("masked_lm_predictions,label_ids,masked_lm_positions")
         for i in range(64):
           writer.write(",%s" % str(i))
         writer.write("\n")
-        for result in estimator.predict(input_fn, yield_single_examples=True): 
+        for result in estimator.predict(input_fn, yield_single_examples=True):
             writer.write("%s,%s,%s" % (str(result['masked_lm_predictions'][0]), str(result['label_ids']), str(result['masked_lm_positions'][0])))
             for i in result['input_ids']:
               writer.write(",%s" % str(i))
             writer.write("\n")
 
     with tf.gfile.GFile(os.path.join(FLAGS.output_dir, 'eval_results_att.txt'), 'w') as writer:
-        for r in estimator.predict(input_fn, yield_single_examples=True): 
+        for r in estimator.predict(input_fn, yield_single_examples=True):
 	  att = r['attention_outputs']
           break
-            
+
         for i in range(64):
             for j in range(768):
               writer.write("%s " % str(att[i][j]))
