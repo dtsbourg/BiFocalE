@@ -9,6 +9,7 @@ import csv
 
 import collections
 from collections import Counter
+import itertools
 
 import networkx as nx
 from networkx.readwrite import json_graph
@@ -167,7 +168,7 @@ def gen_snippet_datasetv2(G, feats, var_map, pre='', name='split_magret', suffix
         snippet, last_node_id = rand_code_snippets(G, n=1, last_node_id=last_node_id, dmin=10, dmax=max_len, mode='dfs')
         G_sub = G.subgraph(snippet[0]).copy()
         row = []
-        for t in snippet:
+        for t in snippet[0]:
             tk = get_name_from_token(feats[t], show_id=False)
             row.append(tk)
 
