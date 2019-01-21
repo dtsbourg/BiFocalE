@@ -153,16 +153,19 @@ def gen_snippet_dataset(nb_snippets, pre='snippet_lit', suf='', tt_ratio=0.8, mo
     print(len(full_voc))
     return snippets, last_node_id
 
-def gen_snippet_datasetv2(G, feats, var_map, pre='', name='split_magret', suffix='', max_len=64, nb_snippets=10, mode='magret', count=False, tt_ratio=0.1, clear=True):
+def gen_snippet_datasetv2(G, feats, var_map, out_path=None, pre='', name='split_magret', suffix='', max_len=64, nb_snippets=10, mode='magret', count=False, tt_ratio=0.1, clear=True):
 
     voc = []; c = Counter();
     total_len= 0; last_node_id = 0
 
+    if out_path is not None:
+        if not os.path.exists(out_path):
+            os.mkdir(out_path)
     if clear:
-        open(pre+name+suffix+'_tk.txt', 'w').close()
-        open(pre+name+suffix+'_tk_val.txt', 'w').close()
-        open(pre+name+suffix+'_adj.txt', 'w').close()
-        open(pre+name+suffix+'_adj_val.txt', 'w').close()
+        open(os.path.join(out_path, pre+name+suffix+'_tk.txt'),      'w').close()
+        open(os.path.join(out_path, pre+name+suffix+'_tk_val.txt'),  'w').close()
+        open(os.path.join(out_path, pre+name+suffix+'_adj.txt'),     'w').close()
+        open(os.path.join(out_path, pre+name+suffix+'_adj_val.txt'), 'w').close()
 
     for j in range(nb_snippets):
         snippet, last_node_id = rand_code_snippets(G, n=1, last_node_id=last_node_id, dmin=10, dmax=max_len, mode='dfs')
@@ -195,11 +198,11 @@ def gen_snippet_datasetv2(G, feats, var_map, pre='', name='split_magret', suffix
                 if r not in voc:
                     voc.append(r)
             if np.random.random() > tt_ratio:
-                with open(pre+name+suffix+'_tk.txt', 'a') as f:
+                with open(os.path.join(out_path, pre+name+suffix+'_tk.txt'), 'a') as f:
                     f.write(' '.join(row))
                     f.write('\n\n')
 
-                with open(pre+name+suffix+'_adj.txt', 'a', newline='') as f:
+                with open(os.path.join(out_path, pre+name+suffix+'_adj.txt'), 'a', newline='') as f:
                     wr = csv.writer(f)
                     G_u = G_sub.to_undirected()
                     adj = nx.adj_matrix(G_u).todense()
@@ -212,11 +215,11 @@ def gen_snippet_datasetv2(G, feats, var_map, pre='', name='split_magret', suffix
                     wr.writerow([])
                     wr.writerow([])
             else:
-                with open(pre+name+suffix+'_tk_val.txt', 'a') as f:
+                with open(os.path.join(out_path, pre+name+suffix+'_tk_val.txt'), 'a') as f:
                     f.write(' '.join(row))
                     f.write('\n\n')
 
-                with open(pre+name+suffix+'_adj_val.txt', 'a', newline='') as f:
+                with open(os.path.join(out_path,pre+name+suffix+'_adj_val.txt'), 'a', newline='') as f:
                     wr = csv.writer(f)
                     G_u = G_sub.to_undirected()
                     adj = nx.adj_matrix(G_u).todense()
@@ -234,7 +237,7 @@ def main(args):
     G_data = json.load(open(args.path+args.prefix+ "-G.json"))
     G = json_graph.node_link_graph(G_data)
     var_map = json.load(open(args.path+args.prefix+"-var_map.json"))
-    gen_snippet_datasetv2(G, feats, var_map)
+    gen_snippet_datasetv2(G, feats, var_map, out_path='split_magret')
 
 if __name__ == "__main__":
     args = parser.parse_args()
