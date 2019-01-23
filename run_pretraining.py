@@ -69,6 +69,8 @@ flags.DEFINE_bool("do_eval", False, "Whether to run eval on the dev set.")
 
 flags.DEFINE_bool("do_predict", False, "Whether to run a prediction step")
 
+flags.DEFINE_bool("save_attention", False, "Whether to save the attention activations to disk")
+
 flags.DEFINE_integer("train_batch_size", 32, "Total batch size for training.")
 
 flags.DEFINE_integer("eval_batch_size", 8, "Total batch size for eval.")
@@ -653,15 +655,16 @@ def main(_):
               writer.write(",%s" % str(i))
             writer.write("\n")
 
-    with tf.gfile.GFile(os.path.join(FLAGS.output_dir, 'eval_results_att.txt'), 'w') as writer:
-        for r in estimator.predict(input_fn, yield_single_examples=True):
-	  att = r['attention_outputs']
-          break
+    if FLAGS.save_attention:
+        with tf.gfile.GFile(os.path.join(FLAGS.output_dir, 'eval_results_att.txt'), 'w') as writer:
+            for r in estimator.predict(input_fn, yield_single_examples=True):
+    	  att = r['attention_outputs']
+              break
 
-        for i in range(64):
-            for j in range(768):
-              writer.write("%s " % str(att[i][j]))
-            writer.write("\n")
+            for i in range(64):
+                for j in range(768):
+                  writer.write("%s " % str(att[i][j]))
+                writer.write("\n")
 
 if __name__ == "__main__":
   flags.mark_flag_as_required("input_file")
