@@ -168,7 +168,10 @@ def gen_snippet_datasetv2(G, feats, var_map, out_path=None, pre='', name='split_
         open(os.path.join(out_path, pre+name+suffix+'_adj_val.txt'), 'w').close()
 
     for j in range(nb_snippets):
-        snippet, last_node_id = rand_code_snippets(G, n=1, last_node_id=last_node_id, dmin=10, dmax=max_len, mode='dfs')
+        try:
+            snippet, last_node_id = rand_code_snippets(G, n=1, last_node_id=last_node_id, dmin=10, dmax=max_len, mode='dfs')
+        except:
+            print("Done. Generated {} snippets.".format(j))
         G_sub = G.subgraph(snippet[0]).copy()
         row = []
         for t in snippet[0]:
@@ -237,7 +240,7 @@ def main(args):
     G_data = json.load(open(args.path+args.prefix+ "-G.json"))
     G = json_graph.node_link_graph(G_data)
     var_map = json.load(open(args.path+args.prefix+"-var_map.json"))
-    gen_snippet_datasetv2(G, feats, var_map, out_path='split_magret')
+    gen_snippet_datasetv2(G, feats, var_map, out_path='split_magret', nb_snippets=10000)
 
 if __name__ == "__main__":
     args = parser.parse_args()
