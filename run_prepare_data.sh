@@ -1,11 +1,11 @@
-BERT_BASE_DIR="uncased_L-12_H-768_A-12"
-CUSTOM_BERT_DIR="split_bert_with_multival"
+MAGRET_DIR="split_magret"
+PREFIX="split_magret"
 
-python create_pretraining_data.py \
-  --input_file=./split_bert_tk.txt \
-  --output_file=$CUSTOM_BERT_DIR/tf_examples.tfrecord \
-  --vocab_file=$BERT_BASE_DIR/vocab-code.txt \
-  --adj_file=./split_bert_adj.txt \
+python prepare_pretraining_data.py \
+  --input_file=$MAGRET_DIR/${PREFIX}_tk.txt \
+  --output_file=$MAGRET_DIR/tf_examples.tfrecord \
+  --vocab_file=$MAGRET_DIR/vocab-code.txt \
+  --adj_file=$MAGRET_DIR/${PREFIX}_adj.txt \
   --do_lower_case=True \
   --max_seq_length=64 \
   --max_predictions_per_seq=1 \
@@ -13,11 +13,11 @@ python create_pretraining_data.py \
   --random_seed=1009 \
   --dupe_factor=50
 
-python create_pretraining_data.py \
-  --input_file=./split_bert_tk_val.txt \
-  --output_file=$CUSTOM_BERT_DIR/tf_examples_val.tfrecord \
-  --vocab_file=$BERT_BASE_DIR/vocab-code.txt \
-  --adj_file=./split_bert_adj_val.txt \
+python prepare_pretraining_data.py \
+  --input_file=$MAGRET_DIR/${PREFIX}tk__val.txt \
+  --output_file=$MAGRET_DIR/tf_examples_val.tfrecord \
+  --vocab_file=$MAGRET_DIR/vocab-code.txt \
+  --adj_file=$MAGRET_DIR/${PREFIX}_adj_val.txt \
   --do_lower_case=True \
   --max_seq_length=64 \
   --max_predictions_per_seq=1 \
