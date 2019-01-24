@@ -15,7 +15,7 @@ import networkx as nx
 from networkx.readwrite import json_graph
 from networkx.algorithms.traversal.depth_first_search import dfs_tree
 
-inv_ast_symbol_dict = joblib.load(filename='inv_ast_symbol_dict')
+inv_ast_symbol_dict = joblib.load(filename='utils/inv_ast_symbol_dict')
 
 parser = argparse.ArgumentParser(description='Process some code.')
 parser.add_argument('--path', action="store", dest="path")
