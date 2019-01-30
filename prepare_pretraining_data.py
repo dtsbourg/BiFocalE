@@ -418,7 +418,6 @@ def create_instances_from_document_with_adj(
   document = all_documents[document_index]
   adjacency = all_adjs[document_index]
 
-  # Account for [CLS], [SEP], [SEP]
   max_num_tokens = max_seq_length
 
   # We *usually* want to fill up the entire sequence since we are padding
@@ -539,7 +538,7 @@ def create_masked_lm_predictions(tokens, masked_lm_prob,
 
   cand_indexes = []
   for (i, token) in enumerate(tokens):
-    if token == "[CLS]" or token == "[SEP]":
+    if token == "[CLS]" or token == "[cls]"  or token == "[SEP]":
       continue
     cand_indexes.append(i)
 
