@@ -611,7 +611,8 @@ def attention_layer(from_tensor,
                     do_return_2d_tensor=False,
                     batch_size=None,
                     from_seq_length=None,
-                    to_seq_length=None):
+                    to_seq_length=None,
+                    return_probs=False):
   """Performs multi-headed attention from `from_tensor` to `to_tensor`.
 
   This is an implementation of multi-headed attention based on "Attention
@@ -791,7 +792,10 @@ def attention_layer(from_tensor,
         context_layer,
         [batch_size, from_seq_length, num_attention_heads * size_per_head])
 
-  return context_layer
+  if return_probs:
+    return context_layer, attention_probs
+  else:
+    return context_layer, None
 
 
 def transformer_model(input_tensor,
@@ -865,15 +869,15 @@ def transformer_model(input_tensor,
   # help the optimizer.
   prev_output = reshape_to_matrix(input_tensor)
 
-  all_layer_outputs = []; all_attention_outputs = []
+  all_layer_outputs = []; all_attention_output_probs = []
   for layer_idx in range(num_hidden_layers):
     with tf.variable_scope("layer_%d" % layer_idx):
       layer_input = prev_output
 
       with tf.variable_scope("attention"):
-        attention_heads = []
+        attention_heads = []; attention_probs = []
         with tf.variable_scope("self"):
-          attention_head = attention_layer(
+          attention_head, attention_prob = attention_layer(
               from_tensor=layer_input,
               to_tensor=layer_input,
               attention_mask=attention_mask,
@@ -884,15 +888,19 @@ def transformer_model(input_tensor,
               do_return_2d_tensor=True,
               batch_size=batch_size,
               from_seq_length=seq_length,
-              to_seq_length=seq_length)
+              to_seq_length=seq_length,
+              return_probs=True)
           attention_heads.append(attention_head)
+          attention_probs.append(attention_prob)
 
-        attention_output = None
+        attention_output = None; attention_output_probs = None
         if len(attention_heads) == 1:
+          attention_output_probs = attention_probs[0]
           attention_output = attention_heads[0]
         else:
           # In the case where we have other sequences, we just concatenate
           # them to the self-attention head before the projection.
+          attention_output_probs = tf.concat(attention_probs, axis=-1)
           attention_output = tf.concat(attention_heads, axis=-1)
 
         # Run a linear projection of `hidden_size` then add a residual
@@ -904,8 +912,8 @@ def transformer_model(input_tensor,
               kernel_initializer=create_initializer(initializer_range))
           attention_output = dropout(attention_output, hidden_dropout_prob)
           attention_output = layer_norm(attention_output + layer_input)
-          prev_attention_output = attention_output
-          all_attention_outputs.append(attention_output)
+          prev_attention_output = attention_output_probs
+          all_attention_output_probs.append(attention_output_probs)
 
       # The activation is only applied to the "intermediate" hidden layer.
       with tf.variable_scope("intermediate"):
@@ -931,13 +939,13 @@ def transformer_model(input_tensor,
     for layer_output in all_layer_outputs:
       final_output = reshape_from_matrix(layer_output, input_shape)
       final_outputs.append(final_output)
-    for att_output in all_attention_outputs:
-      final_att_output = reshape_from_matrix(att_output, input_shape)
-      final_attention_outputs.append(final_att_output)
-    return final_outputs, final_attention_outputs
+    #for att_output_prob in all_attention_output_probs:
+    #  final_att_output = reshape_from_matrix(att_output_prob, input_shape)
+    #  final_attention_outputs.append(final_att_output)
+    return final_outputs, attention_output_probs #final_attention_outputs
   else:
     final_output = reshape_from_matrix(prev_output, input_shape)
-    return final_output, attention_output
+    return final_output, attention_output_probs
 
 
 def get_shape_list(tensor, expected_rank=None, name=None):
