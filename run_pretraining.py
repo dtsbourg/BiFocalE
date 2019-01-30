@@ -69,7 +69,9 @@ flags.DEFINE_bool("do_eval", False, "Whether to run eval on the dev set.")
 
 flags.DEFINE_bool("do_predict", False, "Whether to run a prediction step")
 
-flags.DEFINE_bool("save_attention", False, "Whether to save the attention activations to disk")
+flags.DEFINE_bool("save_attention", False, "Whether to save the attention probabilities to disk")
+
+flags.DEFINE_bool("save_prediction", False, "Whether to save the predictions to disk")
 
 flags.DEFINE_integer("train_batch_size", 32, "Total batch size for training.")
 
@@ -259,7 +261,7 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
 
       masked_lm_predictions = tf.reshape(masked_lm_predictions, [1, masked_lm_positions.shape[-1]])
 
-      attention_output = model.get_attention_output()[-1]
+      attention_output = model.get_attention_output()
       tf.logging.info("-------- -1 ---------")
       tf.logging.info(attention_output)
    #   tf.logging.info(attention_output[-1])
@@ -643,17 +645,18 @@ def main(_):
       max_predictions_per_seq=FLAGS.max_predictions_per_seq,
       is_training=False)
 
-    tf.logging.info("************ RUNNING INFERENCE STEP **************")
-    with tf.gfile.GFile(os.path.join(FLAGS.output_dir, 'eval_results_masked_lm.txt'), 'w') as writer:
-        writer.write("masked_lm_predictions,label_ids,masked_lm_positions")
-        for i in range(64):
-          writer.write(",%s" % str(i))
-        writer.write("\n")
-        for result in estimator.predict(input_fn, yield_single_examples=True):
-            writer.write("%s,%s,%s" % (str(result['masked_lm_predictions'][0]), str(result['label_ids']), str(result['masked_lm_positions'][0])))
-            for i in result['input_ids']:
-              writer.write(",%s" % str(i))
-            writer.write("\n")
+    if FLAGS.save_prediction:
+      tf.logging.info("************ RUNNING INFERENCE STEP **************")
+      with tf.gfile.GFile(os.path.join(FLAGS.output_dir, 'eval_results_masked_lm.txt'), 'w') as writer:
+          writer.write("masked_lm_predictions,label_ids,masked_lm_positions")
+          for i in range(64):
+            writer.write(",%s" % str(i))
+          writer.write("\n")
+          for result in estimator.predict(input_fn, yield_single_examples=True):
+              writer.write("%s,%s,%s" % (str(result['masked_lm_predictions'][0]), str(result['label_ids']), str(result['masked_lm_positions'][0])))
+              for i in result['input_ids']:
+                writer.write(",%s" % str(i))
+              writer.write("\n")
 
     if FLAGS.save_attention:
         with tf.gfile.GFile(os.path.join(FLAGS.output_dir, 'eval_results_att.txt'), 'w') as writer:
@@ -661,9 +664,10 @@ def main(_):
               att = r['attention_outputs']
               break
 
-            for i in range(64):
-                for j in range(768):
-                  writer.write("%s " % str(att[i][j]))
+            for i in range(12):
+                for j in range(64):
+                  for k in range(64):
+                    writer.write("%s " % str(att[i][j][k]))
                 writer.write("\n")
 
 if __name__ == "__main__":

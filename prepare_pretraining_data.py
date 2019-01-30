@@ -40,7 +40,7 @@ flags.DEFINE_string("vocab_file", None,
                     "The vocabulary file that the BERT model was trained on.")
 
 flags.DEFINE_string("adj_file", None,
-                    "The adjacency file that the BERT model was trained on.")
+                    "The adjacency file for the raw text (or comma-separated list of file).")
 
 flags.DEFINE_bool(
     "do_lower_case", True,
