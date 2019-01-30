@@ -658,7 +658,7 @@ def main(_):
     if FLAGS.save_attention:
         with tf.gfile.GFile(os.path.join(FLAGS.output_dir, 'eval_results_att.txt'), 'w') as writer:
             for r in estimator.predict(input_fn, yield_single_examples=True):
-    	  att = r['attention_outputs']
+              att = r['attention_outputs']
               break
 
             for i in range(64):
