@@ -1,5 +1,5 @@
-MAGRET_DIR="split_magret"
-PREFIX="split_magret"
+MAGRET_DIR="cls_magret"
+PREFIX="clssplit_magret"
 
 python prepare_pretraining_data.py \
   --input_file=$MAGRET_DIR/${PREFIX}_tk.txt \
@@ -14,7 +14,7 @@ python prepare_pretraining_data.py \
   --dupe_factor=50
 
 python prepare_pretraining_data.py \
-  --input_file=$MAGRET_DIR/${PREFIX}tk__val.txt \
+  --input_file=$MAGRET_DIR/${PREFIX}_tk_val.txt \
   --output_file=$MAGRET_DIR/tf_examples_val.tfrecord \
   --vocab_file=$MAGRET_DIR/vocab-code.txt \
   --adj_file=$MAGRET_DIR/${PREFIX}_adj_val.txt \
