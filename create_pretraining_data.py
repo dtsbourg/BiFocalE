@@ -20,7 +20,8 @@ inv_ast_symbol_dict = joblib.load(filename='utils/inv_ast_symbol_dict')
 parser = argparse.ArgumentParser(description='Process some code.')
 parser.add_argument('--path', action="store", dest="path")
 parser.add_argument('--prefix', action="store", dest="prefix")
-
+parser.add_argument('--out_path', action="store", dest="out_path")
+parser.add_argument('--nb_snippets', action="store", dest="nb_snippets", type=int)
 
 def get_name_from_token_id(tokenid, show_id = True):
     strtoken = inv_ast_symbol_dict.get(tokenid)
@@ -153,7 +154,7 @@ def gen_snippet_dataset(nb_snippets, pre='snippet_lit', suf='', tt_ratio=0.8, mo
     print(len(full_voc))
     return snippets, last_node_id
 
-def gen_snippet_datasetv2(G, feats, var_map, out_path=None, pre='', name='split_magret', suffix='', max_len=64, nb_snippets=10, mode='magret', count=False, tt_ratio=0.1, clear=True):
+def gen_snippet_datasetv2(G, feats, var_map, out_path=None, pre='', name='split_magret', suffix='', max_len=64, nb_snippets=10, mode='magret', count=False, tt_ratio=0.1, clear=True, cls=True):
 
     voc = []; c = Counter();
     total_len= 0; last_node_id = 0
@@ -166,14 +167,17 @@ def gen_snippet_datasetv2(G, feats, var_map, out_path=None, pre='', name='split_
         open(os.path.join(out_path, pre+name+suffix+'_tk_val.txt'),  'w').close()
         open(os.path.join(out_path, pre+name+suffix+'_adj.txt'),     'w').close()
         open(os.path.join(out_path, pre+name+suffix+'_adj_val.txt'), 'w').close()
+        open(os.path.join(out_path, 'vocab-code.txt'), 'w').close()
 
     for j in range(nb_snippets):
         try:
-            snippet, last_node_id = rand_code_snippets(G, n=1, last_node_id=last_node_id, dmin=10, dmax=max_len, mode='dfs')
+            dlen = -1 if cls else 0 # Make room for [CLS
+            snippet, last_node_id = rand_code_snippets(G, n=1, last_node_id=last_node_id, dmin=10, dmax=max_len+dlen, mode='dfs')
         except:
             print("Done. Generated {} snippets.".format(j))
+            break 
         G_sub = G.subgraph(snippet[0]).copy()
-        row = []
+        row = ["[CLS]"] if cls else []
         for t in snippet[0]:
             tk = get_name_from_token(feats[t], show_id=False)
             row.append(tk)
@@ -210,9 +214,15 @@ def gen_snippet_datasetv2(G, feats, var_map, out_path=None, pre='', name='split_
                     G_u = G_sub.to_undirected()
                     adj = nx.adj_matrix(G_u).todense()
                     final = np.zeros((max_len,max_len), dtype=int)
-                    final[:adj.shape[0], :adj.shape[1]] = adj
-                    final += np.eye(max_len, dtype=int)
-
+                    if cls:
+                      final[1:adj.shape[0]+1, 1:adj.shape[1]+1] = adj
+                      final += np.eye(max_len, dtype=int)
+                      final[:,0] = np.ones(max_len)
+                      final[0,:] = np.ones(max_len)
+                    else:
+                      final[:adj.shape[0], :adj.shape[1]] = adj
+                      final += np.eye(max_len, dtype=int)
+                   
                     for r in final.tolist():
                         wr.writerow(r)
                     wr.writerow([])
@@ -227,20 +237,37 @@ def gen_snippet_datasetv2(G, feats, var_map, out_path=None, pre='', name='split_
                     G_u = G_sub.to_undirected()
                     adj = nx.adj_matrix(G_u).todense()
                     final = np.zeros((max_len,max_len), dtype=int)
-                    final[:adj.shape[0], :adj.shape[1]] = adj
-                    final += np.eye(max_len, dtype=int)
-
+                    if cls:
+                      final[1:adj.shape[0]+1, 1:adj.shape[1]+1] = adj
+                      final += np.eye(max_len, dtype=int)
+                      final[:,0] = np.ones(max_len)
+                      final[0,:] = np.ones(max_len)
+                    else:
+                      final[:adj.shape[0], :adj.shape[1]] = adj
+                      final += np.eye(max_len, dtype=int)
+                   
                     for r in final.tolist():
                         wr.writerow(r)
                     wr.writerow([])
                     wr.writerow([])
+
+    with open(os.path.join(out_path, 'vocab-code.txt'), 'a') as f:
+      f.write("[PAD]\n")
+      f.write("[UNK]\n")
+      f.write("[CLS]\n")
+      f.write("[SEP]\n")
+      f.write("[MASK]\n")
+      for v in voc:
+        f.write(v.lower())
+        f.write('\n')
+    print("Vocabulary length: ", len(voc)+5)
 
 def main(args):
     feats = np.load(args.path+args.prefix+'-feats.npy')
     G_data = json.load(open(args.path+args.prefix+ "-G.json"))
     G = json_graph.node_link_graph(G_data)
     var_map = json.load(open(args.path+args.prefix+"-var_map.json"))
-    gen_snippet_datasetv2(G, feats, var_map, out_path='split_magret', nb_snippets=10000)
+    gen_snippet_datasetv2(G, feats, var_map, pre='cls', out_path=args.out_path, nb_snippets=args.nb_snippets)
 
 if __name__ == "__main__":
     args = parser.parse_args()
