@@ -30,7 +30,7 @@ def get_name_from_token_id(tokenid, show_id = True):
         if tokenid == 104:
             strtoken = "Root Node"
         else:
-            strtoken = "<Unknown token>"
+            strtoken = "[UNK]"
     else:
         strtoken = strtoken.__name__
 
@@ -148,7 +148,6 @@ def gen_snippet_dataset(nb_snippets, pre='snippet_lit', suf='', tt_ratio=0.8, mo
 
     full_voc = list(set(voc) | set(voc_test))
 
-    # TODO write to file
     for v in full_voc:
         print(v.lower())
     print(len(full_voc))
