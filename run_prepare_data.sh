@@ -24,3 +24,4 @@ python prepare_pretraining_data.py \
   --masked_lm_prob=0.15 \
   --random_seed=1009 \
   --dupe_factor=50
+

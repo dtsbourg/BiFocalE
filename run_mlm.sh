@@ -3,11 +3,12 @@ export CUDA_VISIBLE_DEVICES=0
 
 python run_pretraining.py \
   --input_file=$MAGRET_DIR/tf_examples.tfrecord \
-  --validation_file=$MAGRET_DIR/tf_examples_val.tfrecord \
+  --validation_file=$MAGRET_DIR/tf_examples_single.tfrecord \
   --output_dir=$MAGRET_DIR/pretraining_output \
-  --do_train=True \
+  --do_train=False \
   --do_eval=True \
   --do_predict=True \
+  --save_prediction=True \
   --save_attention=True \
   --bert_config_file=$MAGRET_DIR/bert_config.json \
   --train_batch_size=32 \
