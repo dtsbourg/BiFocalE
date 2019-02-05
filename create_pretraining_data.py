@@ -21,9 +21,11 @@ parser = argparse.ArgumentParser(description='Process some code.')
 parser.add_argument('--path', action="store", dest="path")
 parser.add_argument('--prefix', action="store", dest="prefix")
 parser.add_argument('--out_path', action="store", dest="out_path")
+parser.add_argument('--mode', action="store", dest="mode")
+parser.add_argument('--pre', action="store", dest="pre")
 parser.add_argument('--nb_snippets', action="store", dest="nb_snippets", type=int)
 
-def get_name_from_token_id(tokenid, show_id = True):
+def get_name_from_token_id(tokenid, show_id = False):
     strtoken = inv_ast_symbol_dict.get(tokenid)
 
     if strtoken is None:
@@ -54,7 +56,6 @@ def rand_code_snippets(G, n, last_node_id=0, dmin=10, dmax=64, mode='dfs'):
         neighbours = list(hub_ego.nodes())
         if (len(neighbours) > dmin) and (len(neighbours) < dmax):
             snippets.append(neighbours)
-
         node_id += 1
     return snippets, node_id
 
@@ -134,6 +135,8 @@ def gen_vocab(snippets):
         print(v.lower())
     print(len(voc))
 
+def gen_func_label(node_id, func_map):
+    return func_map.get(str(node_id), None)
 
 def gen_snippet_dataset(nb_snippets, pre='snippet_lit', suf='', tt_ratio=0.8, mode=None, max_len=64, w_mode='w', name_lit=False):
     snippets, last_node_id = rand_code_snippets(nb_snippets)
@@ -153,30 +156,45 @@ def gen_snippet_dataset(nb_snippets, pre='snippet_lit', suf='', tt_ratio=0.8, mo
     print(len(full_voc))
     return snippets, last_node_id
 
-def gen_snippet_datasetv2(G, feats, var_map, out_path=None, pre='', name='split_magret', suffix='', max_len=64, nb_snippets=10, mode='magret', count=False, tt_ratio=0.1, clear=True, cls=True):
+def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='', name='split_magret', suffix='', max_len=64, nb_snippets=10, mode='magret', count=False, tt_ratio=0.1, clear=True, cls=True):
 
-    voc = []; c = Counter();
+    voc = []; label_voc = []; c = Counter();
     total_len= 0; last_node_id = 0
 
     if out_path is not None:
         if not os.path.exists(out_path):
             os.mkdir(out_path)
     if clear:
-        open(os.path.join(out_path, pre+name+suffix+'_tk.txt'),      'w').close()
-        open(os.path.join(out_path, pre+name+suffix+'_tk_val.txt'),  'w').close()
-        open(os.path.join(out_path, pre+name+suffix+'_adj.txt'),     'w').close()
-        open(os.path.join(out_path, pre+name+suffix+'_adj_val.txt'), 'w').close()
+        open(os.path.join(out_path, pre+name+suffix+'_tk.txt'),        'w').close()
+        open(os.path.join(out_path, pre+name+suffix+'_tk_val.txt'),    'w').close()
+        open(os.path.join(out_path, pre+name+suffix+'_adj.txt'),       'w').close()
+        open(os.path.join(out_path, pre+name+suffix+'_adj_val.txt'),   'w').close()
+        open(os.path.join(out_path, pre+name+suffix+'_label.txt'), 'w').close()
+        open(os.path.join(out_path, pre+name+suffix+'_label_val.txt'), 'w').close()
         open(os.path.join(out_path, 'vocab-code.txt'), 'w').close()
+        open(os.path.join(out_path, 'vocab-label.txt'), 'w').close()
 
     for j in range(nb_snippets):
         try:
-            dlen = -1 if cls else 0 # Make room for [CLS
+            dlen = -1 if cls else 0 # Make room for [CLS]
             snippet, last_node_id = rand_code_snippets(G, n=1, last_node_id=last_node_id, dmin=10, dmax=max_len+dlen, mode='dfs')
         except:
             print("Done. Generated {} snippets.".format(j))
             break 
         G_sub = G.subgraph(snippet[0]).copy()
         row = ["[CLS]"] if cls else []
+        label = None
+
+        first_tok = snippet[0][0]
+        tk = get_name_from_token(feats[first_tok], show_id=False)
+        if mode=='funcdef':
+          if tk=='FunctionDef':
+            label = gen_func_label(first_tok, func_map)
+            if label not in label_voc:
+              label_voc.append(label)
+          else:
+            continue
+
         for t in snippet[0]:
             tk = get_name_from_token(feats[t], show_id=False)
             row.append(tk)
@@ -206,7 +224,12 @@ def gen_snippet_datasetv2(G, feats, var_map, out_path=None, pre='', name='split_
             if np.random.random() > tt_ratio:
                 with open(os.path.join(out_path, pre+name+suffix+'_tk.txt'), 'a') as f:
                     f.write(' '.join(row))
-                    f.write('\n\n')
+                    sep='\n' if mode=='funcdef' else '\n\n'
+                    f.write(sep)
+
+                if mode=='funcdef' and (label is not None):
+                  with open(os.path.join(out_path, pre+name+suffix+'_label.txt'), 'a') as f:
+                      f.write(label+'\n')
 
                 with open(os.path.join(out_path, pre+name+suffix+'_adj.txt'), 'a', newline='') as f:
                     wr = csv.writer(f)
@@ -229,7 +252,12 @@ def gen_snippet_datasetv2(G, feats, var_map, out_path=None, pre='', name='split_
             else:
                 with open(os.path.join(out_path, pre+name+suffix+'_tk_val.txt'), 'a') as f:
                     f.write(' '.join(row))
-                    f.write('\n\n')
+                    sep='\n' if mode=='funcdef' else '\n\n'
+                    f.write(sep)
+
+                if mode=='funcdef' and (label is not None):
+                  with open(os.path.join(out_path, pre+name+suffix+'_label_val.txt'), 'a') as f:
+                      f.write(label+'\n')
 
                 with open(os.path.join(out_path,pre+name+suffix+'_adj_val.txt'), 'a', newline='') as f:
                     wr = csv.writer(f)
@@ -261,12 +289,19 @@ def gen_snippet_datasetv2(G, feats, var_map, out_path=None, pre='', name='split_
         f.write('\n')
     print("Vocabulary length: ", len(voc)+5)
 
+    if mode=='funcdef':
+      with open(os.path.join(out_path, 'vocab-label.txt'), 'a') as f:
+        for v in label_voc:
+          f.write(v)
+          f.write("\n")
+
 def main(args):
-    feats = np.load(args.path+args.prefix+'-feats.npy')
+    feats  = np.load(args.path+args.prefix+'-feats.npy')
     G_data = json.load(open(args.path+args.prefix+ "-G.json"))
     G = json_graph.node_link_graph(G_data)
-    var_map = json.load(open(args.path+args.prefix+"-var_map.json"))
-    gen_snippet_datasetv2(G, feats, var_map, pre='cls', out_path=args.out_path, nb_snippets=args.nb_snippets)
+    var_map  = json.load(open(args.path+args.prefix+"-var_map.json"))
+    func_map = json.load(open(args.path+args.prefix+"-func_map.json"))
+    gen_snippet_datasetv2(G, feats, var_map, func_map=func_map, pre=args.pre, mode=args.mode, out_path=args.out_path, nb_snippets=args.nb_snippets)
 
 if __name__ == "__main__":
     args = parser.parse_args()

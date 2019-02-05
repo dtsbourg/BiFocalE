@@ -459,40 +459,12 @@ def create_instances_from_document_with_adj(
           tokens_a.extend(current_chunk[j])
 
         tokens_b = []
-        # Random next
-        # is_random_next = False
-        # if len(current_chunk) == 1 or rng.random() < 0.5:
-        #   is_random_next = True
-        #   target_b_length = target_seq_length - len(tokens_a)
-        #
-        #   # This should rarely go for more than one iteration for large
-        #   # corpora. However, just to be careful, we try to make sure that
-        #   # the random document is not the same as the document
-        #   # we're processing.
-        #   for _ in range(10):
-        #     random_document_index = rng.randint(0, len(all_documents) - 1)
-        #     if random_document_index != document_index:
-        #       break
-        #
-        #   random_document = all_documents[random_document_index]
-        #   random_start = rng.randint(0, len(random_document) - 1)
-        #   for j in range(random_start, len(random_document)):
-        #     tokens_b.extend(random_document[j])
-        #     if len(tokens_b) >= target_b_length:
-        #       break
-        #   # We didn't actually use these segments so we "put them back" so
-        #   # they don't go to waste.
-        #   num_unused_segments = len(current_chunk) - a_end
-        #   i -= num_unused_segments
-        # # Actual next
-        # else:
         is_random_next = False
         for j in range(a_end, len(current_chunk)):
           tokens_b.extend(current_chunk[j])
         truncate_seq_pair(tokens_a, tokens_b, max_num_tokens, rng)
 
         assert len(tokens_a) >= 1
-        # assert len(tokens_b) >= 1
 
         tokens = []
         segment_ids = []
