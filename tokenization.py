@@ -210,7 +210,7 @@ class BasicTokenizer(object):
     orig_tokens = whitespace_tokenize(text)
     split_tokens = []
     for token in orig_tokens:
-      if token=="[CLS]":
+      if token in ["[CLS]", "[MASK]", "[PAD]"]:
         split_tokens.extend([token])
       else:
         if self.do_lower_case:
