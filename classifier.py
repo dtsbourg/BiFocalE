@@ -281,6 +281,59 @@ class MethodNamingProcessor(DataProcessor):
 
     return examples
 
+class VarNamingProcessor(DataProcessor):
+  """Processor for the Method Naming data set."""
+
+  @classmethod
+  def _read_adj(cls, input_file, from_line=0):
+    with tf.gfile.Open(input_file, "r") as f:
+      reader = csv.reader(f, delimiter=',')
+      lines = []
+      for row in islice(reader, from_line, from_line+FLAGS.max_seq_length):
+        lines.append([int(r) for r in row])
+      return lines
+
+
+  def get_train_examples(self, data_path, label_path):
+    """See base class."""
+    snippets = self._read_tsv(data_path)
+    labels = self._read_tsv(label_path)
+    return self._create_examples(snippets, labels, "train")
+
+  def get_test_examples(self, data_path, label_path):
+    """See base class."""
+    snippets = self._read_tsv(data_path)
+    labels = self._read_tsv(label_path)
+    return self._create_examples(snippets, labels, "test")
+
+  def get_labels(self, label_path):
+    """See base class."""
+    l = self._read_tsv(label_path)
+    labels = [item for sublist in l for item in sublist]
+    return labels
+
+  def get_adjacency(self, adj_path, idx=0):
+    return self._read_adj(adj_path, from_line=idx*(64+2))
+
+  def _create_examples(self, lines, labels, set_type):
+    """Creates examples for the training and dev sets."""
+    examples = []
+    for (i, (line, label)) in enumerate(zip(lines, labels)):
+      if len(label) > 0:
+        guid = "%s-%s" % (set_type, str(i))
+        print(guid)
+        text  = tokenization.convert_to_unicode(line[0])
+        label = tokenization.convert_to_unicode(label[0])
+
+        adj_file = FLAGS.train_adj if set_type=="train" else FLAGS.eval_adj
+        adj = self.get_adjacency(adj_file, idx=i)
+
+        examples.append(
+            InputExample(guid=guid, text_a=text, adjacency=adj, label=label))
+        if i > 10:
+          break
+    return examples
+
 
 def convert_single_example(ex_index, example, label_list, max_seq_length,
                            tokenizer):
@@ -343,7 +396,15 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
   assert len(input_mask) == max_seq_length
   assert len(segment_ids) == max_seq_length
 
-  label_id = label_map[example.label]
+  split_label = example.label.split(',')
+  is_multilabel = len(split_label) > 0
+  if is_multilabel:
+    label_id = []
+    for l in split_label[:-1]: 
+      label_id.append(label_map[l])
+  else:
+    label_id = label_map[example.label]
+
   if ex_index < 5:
     tf.logging.info("*** Example ***")
     tf.logging.info("guid: %s" % (example.guid))
@@ -352,7 +413,10 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
     tf.logging.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
     tf.logging.info("input_mask: %s" % " ".join([str(x) for x in input_mask]))
     tf.logging.info("segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
-    tf.logging.info("label: %s (id = %d)" % (example.label, label_id))
+    if is_multilabel:
+      tf.logging.info("label: {} (ids = {})".format(example.label, label_id))
+    else:
+      tf.logging.info("label: %s (id = %d)" % (example.label, label_id))
     for v in example.adjacency:
       tf.logging.info("adjacency: %s" % " ".join([str(x) for x in v]))
 
@@ -389,7 +453,10 @@ def file_based_convert_examples_to_features(
     features["adjacency"] = create_int_feature([item for sublist in adjacency for item in sublist])
     features["input_mask"] = create_int_feature(feature.input_mask)
     features["segment_ids"] = create_int_feature(feature.segment_ids)
-    features["label_ids"] = create_int_feature([feature.label_id])
+    if FLAGS.task_name == 'varname':
+      features["label_ids"] = create_int_feature(feature.label_id)
+    else: 
+      features["label_ids"] = create_int_feature([feature.label_id])
     features["is_real_example"] = create_int_feature(
         [int(feature.is_real_example)])
 
@@ -668,6 +735,7 @@ def main(_):
 
   processors = {
       "methodname": MethodNamingProcessor,
+      "varname": VarNamingProcessor,
   }
 
   tokenization.validate_case_matches_checkpoint(FLAGS.do_lower_case,
@@ -708,7 +776,7 @@ def main(_):
           iterations_per_loop=FLAGS.iterations_per_loop,
           num_shards=FLAGS.num_tpu_cores,
           per_host_input_for_training=is_per_host))
-  print(FLAGS.train_file, FLAGS.train_labels)
+
   train_examples = None
   num_train_steps = None
   num_warmup_steps = None
@@ -742,6 +810,7 @@ def main(_):
     train_file = os.path.join(FLAGS.output_dir, "train.tf_record")
     file_based_convert_examples_to_features(
         train_examples, label_list, FLAGS.max_seq_length, tokenizer, train_file)
+
     tf.logging.info("***** Running training *****")
     tf.logging.info("  Num examples = %d", len(train_examples))
     tf.logging.info("  Batch size = %d", FLAGS.train_batch_size)
@@ -751,6 +820,7 @@ def main(_):
         seq_length=FLAGS.max_seq_length,
         is_training=True,
         drop_remainder=True)
+    return 
     estimator.train(input_fn=train_input_fn, max_steps=num_train_steps)
 
   if FLAGS.do_eval:

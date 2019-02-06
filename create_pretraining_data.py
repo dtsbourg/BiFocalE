@@ -169,7 +169,7 @@ def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='
         open(os.path.join(out_path, pre+name+suffix+'_tk_val.txt'),    'w').close()
         open(os.path.join(out_path, pre+name+suffix+'_adj.txt'),       'w').close()
         open(os.path.join(out_path, pre+name+suffix+'_adj_val.txt'),   'w').close()
-        open(os.path.join(out_path, pre+name+suffix+'_label.txt'), 'w').close()
+        open(os.path.join(out_path, pre+name+suffix+'_label.txt'),     'w').close()
         open(os.path.join(out_path, pre+name+suffix+'_label_val.txt'), 'w').close()
         open(os.path.join(out_path, 'vocab-code.txt'), 'w').close()
         open(os.path.join(out_path, 'vocab-label.txt'), 'w').close()
@@ -184,6 +184,7 @@ def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='
         G_sub = G.subgraph(snippet[0]).copy()
         row = ["[CLS]"] if cls else []
         label = None
+        masked_var = []
 
         first_tok = snippet[0][0]
         tk = get_name_from_token(feats[first_tok], show_id=False)
@@ -194,7 +195,8 @@ def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='
               label_voc.append(label)
           else:
             continue
-
+          
+        did_mask_var = False
         for t in snippet[0]:
             tk = get_name_from_token(feats[t], show_id=False)
             row.append(tk)
@@ -203,12 +205,22 @@ def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='
             if vk is not None:
                 split = list(filter(None, vk.split('_')))
                 if len(split) > 0:
+                    if (mode=='varname') and (did_mask_var == False):
+                      while len(split) < 4:
+                        split.append("[PAD]")
                     for e_in, e_out in itertools.permutations(split,2):
                         G_sub.add_edge(e_in+str(t), e_out+str(t))
                     G_sub.add_edge(t,split[0]+str(t))
 
-                    for s in split:
-                        row.append(s)
+                    if (mode=='varname') and (did_mask_var == False):
+                        for s in split:
+                            masked_var.append(s)
+                            row.append("[MASK]")
+                        did_mask_var = True
+                    else:
+                        for s in split:
+                            row.append(s)
+                  
         total_len += len(row)
         if count:
             c.update(row)
@@ -221,15 +233,24 @@ def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='
             for r in row:
                 if r not in voc:
                     voc.append(r)
+            for v in masked_var:
+                if v not in voc:
+                     voc.append(v)
             if np.random.random() > tt_ratio:
                 with open(os.path.join(out_path, pre+name+suffix+'_tk.txt'), 'a') as f:
                     f.write(' '.join(row))
-                    sep='\n' if mode=='funcdef' else '\n\n'
+                    sep='\n' if not mode=='magret' else '\n\n'
                     f.write(sep)
 
                 if mode=='funcdef' and (label is not None):
                   with open(os.path.join(out_path, pre+name+suffix+'_label.txt'), 'a') as f:
                       f.write(label+'\n')
+
+                elif mode=='varname':
+                  with open(os.path.join(out_path, pre+name+suffix+'_label.txt'), 'a') as f:
+                    for i,v in enumerate(masked_var):
+                      f.write(v+',')
+                    f.write('\n')
 
                 with open(os.path.join(out_path, pre+name+suffix+'_adj.txt'), 'a', newline='') as f:
                     wr = csv.writer(f)
@@ -252,12 +273,20 @@ def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='
             else:
                 with open(os.path.join(out_path, pre+name+suffix+'_tk_val.txt'), 'a') as f:
                     f.write(' '.join(row))
-                    sep='\n' if mode=='funcdef' else '\n\n'
+                    sep='\n' if not mode=='magret' else '\n\n'
                     f.write(sep)
 
                 if mode=='funcdef' and (label is not None):
                   with open(os.path.join(out_path, pre+name+suffix+'_label_val.txt'), 'a') as f:
                       f.write(label+'\n')
+
+                elif mode=='varname':
+                  with open(os.path.join(out_path, pre+name+suffix+'_label.txt'), 'a') as f:
+                    for i,v in enumerate(masked_var):
+                      f.write(v+',')
+                    if len(masked_var)==0:
+                      f.write('[PAD],[PAD],[PAD],[PAD]')
+                    f.write('\n')
 
                 with open(os.path.join(out_path,pre+name+suffix+'_adj_val.txt'), 'a', newline='') as f:
                     wr = csv.writer(f)
