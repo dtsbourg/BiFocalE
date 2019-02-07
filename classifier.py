@@ -278,7 +278,6 @@ class MethodNamingProcessor(DataProcessor):
 
       examples.append(
           InputExample(guid=guid, text_a=text, adjacency=adj, label=label))
-
     return examples
 
 class VarNamingProcessor(DataProcessor):
@@ -330,7 +329,7 @@ class VarNamingProcessor(DataProcessor):
 
         examples.append(
             InputExample(guid=guid, text_a=text, adjacency=adj, label=label))
-        if i > 10:
+        if i > 500:
           break
     return examples
 
@@ -396,12 +395,20 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
   assert len(input_mask) == max_seq_length
   assert len(segment_ids) == max_seq_length
 
-  split_label = example.label.split(',')
+  split_label = tokenizer.tokenize(' '.join(example.label.split(',')))
+  split_label = tokenizer.convert_tokens_to_ids(split_label)
   is_multilabel = len(split_label) > 0
   if is_multilabel:
     label_id = []
-    for l in split_label[:-1]: 
-      label_id.append(label_map[l])
+    msk_count = 0
+    for idx, token in enumerate(tokens_a):
+      if token == "[MASK]":
+        label_id.append(split_label[msk_count])
+        msk_count += 1
+      else:
+        label_id.append(input_ids[idx])
+    while len(label_id) < max_seq_length:
+      label_id.append(0)
   else:
     label_id = label_map[example.label]
 
@@ -459,7 +466,6 @@ def file_based_convert_examples_to_features(
       features["label_ids"] = create_int_feature([feature.label_id])
     features["is_real_example"] = create_int_feature(
         [int(feature.is_real_example)])
-
     tf_example = tf.train.Example(features=tf.train.Features(feature=features))
     writer.write(tf_example.SerializeToString())
   writer.close()
@@ -469,12 +475,16 @@ def file_based_input_fn_builder(input_file, seq_length, is_training,
                                 drop_remainder):
   """Creates an `input_fn` closure to be passed to TPUEstimator."""
 
+  if FLAGS.task_name=='varname':
+    lids = tf.FixedLenFeature([seq_length], tf.int64)
+  else:
+    lids = tf.FixedLenFeature([], tf.int64)
   name_to_features = {
       "input_ids": tf.FixedLenFeature([seq_length], tf.int64),
       "adjacency": tf.FixedLenFeature([seq_length*seq_length], tf.int64),
       "input_mask": tf.FixedLenFeature([seq_length], tf.int64),
       "segment_ids": tf.FixedLenFeature([seq_length], tf.int64),
-      "label_ids": tf.FixedLenFeature([], tf.int64),
+      "label_ids": lids, 
       "is_real_example": tf.FixedLenFeature([], tf.int64),
   }
 
@@ -543,15 +553,22 @@ def create_model(bert_config, is_training, input_ids, input_mask, adj_mask, segm
       token_type_ids=segment_ids,
       use_one_hot_embeddings=use_one_hot_embeddings)
 
+  is_multilabel = FLAGS.task_name == 'varname'
   # In the demo, we are doing a simple classification task on the entire
   # segment.
   #
   # If you want to use the token-level output, use model.get_sequence_output()
   # instead.
-  output_layer = model.get_pooled_output()
-
-  hidden_size = output_layer.shape[-1].value
-
+  if is_multilabel:
+    output_layer = model.get_sequence_output()
+    final_hidden_shape = modeling.get_shape_list(output_layer, expected_rank=3)
+    batch_size = final_hidden_shape[0]
+    seq_length = final_hidden_shape[1]
+    hidden_size = final_hidden_shape[2]
+  else:
+    output_layer = model.get_pooled_output()
+    hidden_size = output_layer.shape[-1].value
+  
   output_weights = tf.get_variable(
       "output_weights", [num_labels, hidden_size],
       initializer=tf.truncated_normal_initializer(stddev=0.02))
@@ -563,16 +580,27 @@ def create_model(bert_config, is_training, input_ids, input_mask, adj_mask, segm
     if is_training:
       # I.e., 0.1 dropout
       output_layer = tf.nn.dropout(output_layer, keep_prob=0.9)
-
+    print(output_layer.shape)
+    if is_multilabel:
+      output_layer = tf.reshape(output_layer, [batch_size*seq_length, hidden_size])
+      print(output_layer.shape)
     logits = tf.matmul(output_layer, output_weights, transpose_b=True)
     logits = tf.nn.bias_add(logits, output_bias)
+
+    if is_multilabel:
+      logits = tf.reshape(logits, [batch_size, seq_length, num_labels])
+      #logits = tf.transpose(logits, [2, 0, 1])
+      #logits = tf.reshape(logits, [16, FLAGS.max_seq_length, num_labels])
     probabilities = tf.nn.softmax(logits, axis=-1)
     log_probs = tf.nn.log_softmax(logits, axis=-1)
 
     one_hot_labels = tf.one_hot(labels, depth=num_labels, dtype=tf.float32)
-
     per_example_loss = -tf.reduce_sum(one_hot_labels * log_probs, axis=-1)
-    loss = tf.reduce_mean(per_example_loss)
+
+    if is_multilabel:
+      loss = tf.reduce_sum(per_example_loss)
+    else:
+      loss = tf.reduce_mean(per_example_loss)
 
     return (loss, per_example_loss, logits, probabilities)
 
@@ -606,6 +634,9 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
     (total_loss, per_example_loss, logits, probabilities) = create_model(
         bert_config, is_training, input_ids, input_mask, adjacency, segment_ids, label_ids,
         num_labels, use_one_hot_embeddings)
+
+    #logits = tf.unstack(logits, axis=0)
+    #probabilities = tf.nn.softmax(logits, axis=-1)
 
     tvars = tf.trainable_variables()
     initialized_variable_names = {}
@@ -669,65 +700,6 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
     return output_spec
 
   return model_fn
-
-
-# This function is not used by this file but is still used by the Colab and
-# people who depend on it.
-def input_fn_builder(features, seq_length, is_training, drop_remainder):
-  """Creates an `input_fn` closure to be passed to TPUEstimator."""
-
-  all_input_ids = []
-  all_input_mask = []
-  all_segment_ids = []
-  all_label_ids = []
-
-  for feature in features:
-    all_input_ids.append(feature.input_ids)
-    all_input_mask.append(feature.input_mask)
-    all_segment_ids.append(feature.segment_ids)
-    all_label_ids.append(feature.label_id)
-
-  def input_fn(params):
-    """The actual input function."""
-    batch_size = params["batch_size"]
-
-    num_examples = len(features)
-
-    # This is for demo purposes and does NOT scale to large data sets. We do
-    # not use Dataset.from_generator() because that uses tf.py_func which is
-    # not TPU compatible. The right way to load data is with TFRecordReader.
-    d = tf.data.Dataset.from_tensor_slices({
-        "input_ids":
-            tf.constant(
-                all_input_ids, shape=[num_examples, seq_length],
-                dtype=tf.int32),
-        "input_mask":
-            tf.constant(
-                all_input_mask,
-                shape=[num_examples, seq_length],
-                dtype=tf.int32),
-        "adjacency":
-            tf.constant(
-                all_adj_masks,
-                shape=[num_examples, seq_length*seq_length], 
-                dtype=tf.int32),
-        "segment_ids":
-            tf.constant(
-                all_segment_ids,
-                shape=[num_examples, seq_length],
-                dtype=tf.int32),
-        "label_ids":
-            tf.constant(all_label_ids, shape=[num_examples], dtype=tf.int32),
-    })
-
-    if is_training:
-      d = d.repeat()
-      d = d.shuffle(buffer_size=100)
-
-    d = d.batch(batch_size=batch_size, drop_remainder=drop_remainder)
-    return d
-
-  return input_fn
 
 
 def main(_):
@@ -820,10 +792,9 @@ def main(_):
         seq_length=FLAGS.max_seq_length,
         is_training=True,
         drop_remainder=True)
-    return 
     estimator.train(input_fn=train_input_fn, max_steps=num_train_steps)
-
-  if FLAGS.do_eval:
+ 
+  if FLAGS.do_eval and (FLAGS.task_name != 'varname'):
     eval_examples = processor.get_test_examples(FLAGS.eval_file, FLAGS.eval_labels)
     num_actual_eval_examples = len(eval_examples)
     if FLAGS.use_tpu:
@@ -906,12 +877,17 @@ def main(_):
       tf.logging.info("***** Predict results *****")
       for (i, prediction) in enumerate(result):
         probabilities = prediction["probabilities"]
+        for class_prob in probabilities: 
+          out_line = [] 
+          for prob in class_prob:
+            out_line.append(str(prob))
+          writer.write('\t'.join(out_line)+"\n")
         if i >= num_actual_predict_examples:
           break
-        output_line = "\t".join(
-            str(class_probability)
-            for class_probability in probabilities) + "\n"
-        writer.write(output_line)
+        #output_line = "\t".join(
+        #    str(class_probability)
+        #    for class_probability in probabilities) + "\n"
+        #writer.write(output_line)
         num_written_lines += 1
     assert num_written_lines == num_actual_predict_examples
 
