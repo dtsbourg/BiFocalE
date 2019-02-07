@@ -250,6 +250,8 @@ def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='
                   with open(os.path.join(out_path, pre+name+suffix+'_label.txt'), 'a') as f:
                     for i,v in enumerate(masked_var):
                       f.write(v+',')
+                    if len(masked_var)==0:
+                      f.write('[PAD],[PAD],[PAD],[PAD]')
                     f.write('\n')
 
                 with open(os.path.join(out_path, pre+name+suffix+'_adj.txt'), 'a', newline='') as f:
@@ -281,7 +283,7 @@ def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='
                       f.write(label+'\n')
 
                 elif mode=='varname':
-                  with open(os.path.join(out_path, pre+name+suffix+'_label.txt'), 'a') as f:
+                  with open(os.path.join(out_path, pre+name+suffix+'_label_val.txt'), 'a') as f:
                     for i,v in enumerate(masked_var):
                       f.write(v+',')
                     if len(masked_var)==0:
