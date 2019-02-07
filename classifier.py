@@ -80,6 +80,12 @@ flags.DEFINE_string(
     "eval_adj", None,
     "The file which contains the evaluation adjacency matrices.")
 
+flags.DEFINE_bool("clean_data", False, "Whether to generate a fresh batch of data.")
+
+flags.DEFINE_integer(
+    "max_nb_preds", 128,
+    "Max number of predictions to generate.")
+
 ## Other parameters
 
 flags.DEFINE_string(
@@ -268,6 +274,8 @@ class MethodNamingProcessor(DataProcessor):
   def _create_examples(self, lines, labels, set_type):
     """Creates examples for the training and dev sets."""
     examples = []
+    tokenizer = tokenization.FullTokenizer(
+        vocab_file=FLAGS.vocab_file, do_lower_case=FLAGS.do_lower_case)
     for (i, (line, label)) in enumerate(zip(lines, labels)):
       guid = "%s-%s" % (set_type, str(i))
       text  = tokenization.convert_to_unicode(line[0])
@@ -278,6 +286,11 @@ class MethodNamingProcessor(DataProcessor):
 
       examples.append(
           InputExample(guid=guid, text_a=text, adjacency=adj, label=label))
+      if i % 100:
+        train_file = os.path.join(FLAGS.output_dir, "train.tf_record")
+        file_based_convert_examples_to_features(
+            examples, self.get_labels(FLAGS.label_vocab), FLAGS.max_seq_length, tokenizer, train_file)
+        examples = []
     return examples
 
 class VarNamingProcessor(DataProcessor):
@@ -317,6 +330,8 @@ class VarNamingProcessor(DataProcessor):
   def _create_examples(self, lines, labels, set_type):
     """Creates examples for the training and dev sets."""
     examples = []
+    tokenizer = tokenization.FullTokenizer(
+        vocab_file=FLAGS.vocab_file, do_lower_case=FLAGS.do_lower_case)
     for (i, (line, label)) in enumerate(zip(lines, labels)):
       if len(label) > 0:
         guid = "%s-%s" % (set_type, str(i))
@@ -329,6 +344,13 @@ class VarNamingProcessor(DataProcessor):
 
         examples.append(
             InputExample(guid=guid, text_a=text, adjacency=adj, label=label))
+        if i % 100==0:
+          train_file = os.path.join(FLAGS.output_dir, "train.tf_record")
+          file_based_convert_examples_to_features(
+              examples, self.get_labels(FLAGS.label_vocab), FLAGS.max_seq_length, tokenizer, train_file)
+          print('-----------', len(examples))
+          examples = []
+          print('-----------',len(examples))
         if i > 500:
           break
     return examples
@@ -424,8 +446,8 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
       tf.logging.info("label: {} (ids = {})".format(example.label, label_id))
     else:
       tf.logging.info("label: %s (id = %d)" % (example.label, label_id))
-    for v in example.adjacency:
-      tf.logging.info("adjacency: %s" % " ".join([str(x) for x in v]))
+    #for v in example.adjacency:
+    #  tf.logging.info("adjacency: %s" % " ".join([str(x) for x in v]))
 
   feature = InputFeatures(
       input_ids=input_ids,
@@ -753,9 +775,14 @@ def main(_):
   num_train_steps = None
   num_warmup_steps = None
   if FLAGS.do_train:
-    train_examples = processor.get_train_examples(FLAGS.train_file, FLAGS.train_labels)
-    num_train_steps = int(
-        len(train_examples) / FLAGS.train_batch_size * FLAGS.num_train_epochs)
+    if FLAGS.clean_data:
+      train_examples = processor.get_train_examples(FLAGS.train_file, FLAGS.train_labels)
+      num_train_steps = int(
+          len(train_examples) / FLAGS.train_batch_size * FLAGS.num_train_epochs)
+      file_based_convert_examples_to_features(
+          train_examples, label_list, FLAGS.max_seq_length, tokenizer, train_file)
+    else:
+      num_train_steps = FLAGS.num_train_epochs
     num_warmup_steps = int(num_train_steps * FLAGS.warmup_proportion)
 
   model_fn = model_fn_builder(
@@ -780,11 +807,9 @@ def main(_):
 
   if FLAGS.do_train:
     train_file = os.path.join(FLAGS.output_dir, "train.tf_record")
-    file_based_convert_examples_to_features(
-        train_examples, label_list, FLAGS.max_seq_length, tokenizer, train_file)
 
     tf.logging.info("***** Running training *****")
-    tf.logging.info("  Num examples = %d", len(train_examples))
+    #tf.logging.info("  Num examples = %d", len(train_examples))
     tf.logging.info("  Batch size = %d", FLAGS.train_batch_size)
     tf.logging.info("  Num steps = %d", num_train_steps)
     train_input_fn = file_based_input_fn_builder(
@@ -794,7 +819,7 @@ def main(_):
         drop_remainder=True)
     estimator.train(input_fn=train_input_fn, max_steps=num_train_steps)
  
-  if FLAGS.do_eval and (FLAGS.task_name != 'varname'):
+  if FLAGS.do_eval:
     eval_examples = processor.get_test_examples(FLAGS.eval_file, FLAGS.eval_labels)
     num_actual_eval_examples = len(eval_examples)
     if FLAGS.use_tpu:
@@ -841,8 +866,14 @@ def main(_):
         writer.write("%s = %s\n" % (key, str(result[key])))
 
   if FLAGS.do_predict:
-    predict_examples = processor.get_test_examples(FLAGS.eval_file, FLAGS.eval_labels)
-    num_actual_predict_examples = len(predict_examples)
+    if FLAGS.clean_data:
+      predict_examples = processor.get_test_examples(FLAGS.eval_file, FLAGS.eval_labels)
+      num_actual_predict_examples = len(predict_examples)
+      file_based_convert_examples_to_features(predict_examples, label_list,
+                                              FLAGS.max_seq_length, tokenizer,
+                                              predict_file)
+    else:
+      num_actual_predict_examples = FLAGS.max_nb_preds
     if FLAGS.use_tpu:
       # TPU requires a fixed batch size for all batches, therefore the number
       # of examples must be a multiple of the batch size, or else examples
@@ -852,14 +883,11 @@ def main(_):
         predict_examples.append(PaddingInputExample())
 
     predict_file = os.path.join(FLAGS.output_dir, "predict.tf_record")
-    file_based_convert_examples_to_features(predict_examples, label_list,
-                                            FLAGS.max_seq_length, tokenizer,
-                                            predict_file)
 
     tf.logging.info("***** Running prediction*****")
-    tf.logging.info("  Num examples = %d (%d actual, %d padding)",
-                    len(predict_examples), num_actual_predict_examples,
-                    len(predict_examples) - num_actual_predict_examples)
+    #tf.logging.info("  Num examples = %d (%d actual, %d padding)",
+    #                len(predict_examples), num_actual_predict_examples,
+    #                len(predict_examples) - num_actual_predict_examples)
     tf.logging.info("  Batch size = %d", FLAGS.predict_batch_size)
 
     predict_drop_remainder = True if FLAGS.use_tpu else False
@@ -877,19 +905,21 @@ def main(_):
       tf.logging.info("***** Predict results *****")
       for (i, prediction) in enumerate(result):
         probabilities = prediction["probabilities"]
-        for class_prob in probabilities: 
-          out_line = [] 
-          for prob in class_prob:
-            out_line.append(str(prob))
-          writer.write('\t'.join(out_line)+"\n")
-        if i >= num_actual_predict_examples:
-          break
-        #output_line = "\t".join(
-        #    str(class_probability)
-        #    for class_probability in probabilities) + "\n"
-        #writer.write(output_line)
+        if task_name=='varname':
+          for class_prob in probabilities: 
+            out_line = [] 
+            for prob in class_prob:
+              out_line.append(str(prob))
+            writer.write('\t'.join(out_line)+"\n")
+          if i >= num_actual_predict_examples:
+            break
+        else:        
+          output_line = "\t".join(
+               str(class_probability)
+               for class_probability in probabilities) + "\n"
+          writer.write(output_line)
         num_written_lines += 1
-    assert num_written_lines == num_actual_predict_examples
+    #assert num_written_lines == num_actual_predict_examples
 
 
 if __name__ == "__main__":
