@@ -157,7 +157,7 @@ def gen_snippet_dataset(nb_snippets, pre='snippet_lit', suf='', tt_ratio=0.8, mo
     print(len(full_voc))
     return snippets, last_node_id
 
-def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='', name='split_magret', suffix='', max_len=64, nb_snippets=10, mode='magret', count=False, tt_ratio=0.1, clear=True, cls=True, sparse_adj=True):
+def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='', name='split_magret', suffix='', max_len=64, nb_snippets=10, mode='magret', count=False, tt_ratio=0.1, clear=True, cls=True, sparse_adj=True, regen_vocab=False):
 
     voc = []; label_voc = []; c = Counter();
     total_len= 0; last_node_id = 0
@@ -172,7 +172,8 @@ def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='
         open(os.path.join(out_path, pre+name+suffix+'_adj_val.txt'),   'w').close()
         open(os.path.join(out_path, pre+name+suffix+'_label.txt'),     'w').close()
         open(os.path.join(out_path, pre+name+suffix+'_label_val.txt'), 'w').close()
-        open(os.path.join(out_path, 'vocab-code.txt'), 'w').close()
+        if regen_vocab:
+          open(os.path.join(out_path, 'vocab-code.txt'), 'w').close()
         open(os.path.join(out_path, 'vocab-label.txt'), 'w').close()
 
     for j in range(nb_snippets):
