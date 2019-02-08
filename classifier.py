@@ -612,10 +612,8 @@ def create_model(bert_config, is_training, input_ids, input_mask, adj_mask, segm
     if is_training:
       # I.e., 0.1 dropout
       output_layer = tf.nn.dropout(output_layer, keep_prob=0.9)
-    print(output_layer.shape)
     if is_multilabel:
       output_layer = tf.reshape(output_layer, [batch_size*seq_length, hidden_size])
-      print(output_layer.shape)
     logits = tf.matmul(output_layer, output_weights, transpose_b=True)
     logits = tf.nn.bias_add(logits, output_bias)
 
@@ -634,7 +632,9 @@ def create_model(bert_config, is_training, input_ids, input_mask, adj_mask, segm
     else:
       loss = tf.reduce_mean(per_example_loss)
 
-    return (loss, per_example_loss, logits, probabilities)
+    attention_output = model.get_attention_output()
+
+    return (loss, per_example_loss, logits, probabilities, attention_output)
 
 
 def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
@@ -663,7 +663,7 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
 
     is_training = (mode == tf.estimator.ModeKeys.TRAIN)
 
-    (total_loss, per_example_loss, logits, probabilities) = create_model(
+    (total_loss, per_example_loss, logits, probabilities, attention_output) = create_model(
         bert_config, is_training, input_ids, input_mask, adjacency, segment_ids, label_ids,
         num_labels, use_one_hot_embeddings)
 
@@ -727,7 +727,10 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
     else:
       output_spec = tf.contrib.tpu.TPUEstimatorSpec(
           mode=mode,
-          predictions={"probabilities": probabilities},
+          predictions={
+            "probabilities": probabilities,
+            "attention_output": attention_output
+          },
           scaffold_fn=scaffold_fn)
     return output_spec
 
@@ -930,6 +933,20 @@ def main(_):
           writer.write(output_line)
         num_written_lines += 1
     #assert num_written_lines == num_actual_predict_examples
+
+    output_predict_file = os.path.join(FLAGS.output_dir, "attention_results.tsv")
+    with tf.gfile.GFile(output_predict_file, "w") as writer:
+      num_written_lines = 0
+      tf.logging.info("***** Attention results *****")
+      for (i, prediction) in enumerate(result):
+        att = prediction["attention_output"]
+        for i in range(12):
+          for j in range(64):
+            for k in range(64):
+              writer.write("%s " % str(att[i][j][k]))
+          writer.write("\n")
+        break
+        num_written_lines += 1
 
 
 if __name__ == "__main__":
