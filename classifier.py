@@ -20,6 +20,8 @@ from __future__ import print_function
 
 from itertools import islice
 
+from scipy import sparse, io
+
 import collections
 import csv
 import os
@@ -110,6 +112,16 @@ flags.DEFINE_bool("do_eval", False, "Whether to run eval on the dev set.")
 flags.DEFINE_bool(
     "do_predict", False,
     "Whether to run the model in inference mode on the test set.")
+
+flags.DEFINE_bool(
+    "sparse_adj", False,
+    "Whether to run the model in inference mode on the test set.")
+
+tf.flags.DEFINE_string(
+    "adj_prefix", None,
+    "The Cloud TPU to use for training. This should be either the name "
+    "used when creating the Cloud TPU, or a grpc://ip.address.of.tpu:8470 "
+    "url.")
 
 flags.DEFINE_integer("train_batch_size", 32, "Total batch size for training.")
 
@@ -286,11 +298,9 @@ class MethodNamingProcessor(DataProcessor):
 
       examples.append(
           InputExample(guid=guid, text_a=text, adjacency=adj, label=label))
-      if i % 100:
-        train_file = os.path.join(FLAGS.output_dir, "train.tf_record")
-        file_based_convert_examples_to_features(
-            examples, self.get_labels(FLAGS.label_vocab), FLAGS.max_seq_length, tokenizer, train_file)
-        examples = []
+      #train_file = os.path.join(FLAGS.output_dir, "train.tf_record")
+      #file_based_convert_examples_to_features(
+      #    examples, self.get_labels(FLAGS.label_vocab), FLAGS.max_seq_length, tokenizer, train_file)
     return examples
 
 class VarNamingProcessor(DataProcessor):
@@ -305,6 +315,11 @@ class VarNamingProcessor(DataProcessor):
         lines.append([int(r) for r in row])
       return lines
 
+  @classmethod
+  def _read_sparse_adj(cls, path, suffix, idx=0):
+    fname = str(idx)+'_'+FLAGS.adj_prefix+suffix+'.mtx'
+    m = io.mmread(os.path.join(path, 'adj', fname))
+    return list(m.toarray())
 
   def get_train_examples(self, data_path, label_path):
     """See base class."""
@@ -324,8 +339,11 @@ class VarNamingProcessor(DataProcessor):
     labels = [item for sublist in l for item in sublist]
     return labels
 
-  def get_adjacency(self, adj_path, idx=0):
-    return self._read_adj(adj_path, from_line=idx*(64+2))
+  def get_adjacency(self, adj_path, suffix="", idx=0):
+    if FLAGS.sparse_adj:
+      return self._read_sparse_adj(adj_path, suffix=suffix, idx=idx)
+    else:
+      return self._read_adj(adj_path, from_line=idx*(64+2))
 
   def _create_examples(self, lines, labels, set_type):
     """Creates examples for the training and dev sets."""
@@ -335,24 +353,16 @@ class VarNamingProcessor(DataProcessor):
     for (i, (line, label)) in enumerate(zip(lines, labels)):
       if len(label) > 0:
         guid = "%s-%s" % (set_type, str(i))
-        print(guid)
+
         text  = tokenization.convert_to_unicode(line[0])
         label = tokenization.convert_to_unicode(label[0])
-
+        
         adj_file = FLAGS.train_adj if set_type=="train" else FLAGS.eval_adj
-        adj = self.get_adjacency(adj_file, idx=i)
+        suffix = "_adj" if set_type=="train" else "_adj_val"
+        adj = self.get_adjacency(adj_file, suffix=suffix, idx=i) 
 
         examples.append(
             InputExample(guid=guid, text_a=text, adjacency=adj, label=label))
-        if i % 100==0:
-          train_file = os.path.join(FLAGS.output_dir, "train.tf_record")
-          file_based_convert_examples_to_features(
-              examples, self.get_labels(FLAGS.label_vocab), FLAGS.max_seq_length, tokenizer, train_file)
-          print('-----------', len(examples))
-          examples = []
-          print('-----------',len(examples))
-        if i > 500:
-          break
     return examples
 
 
@@ -775,6 +785,7 @@ def main(_):
   num_train_steps = None
   num_warmup_steps = None
   if FLAGS.do_train:
+    train_file = os.path.join(FLAGS.output_dir, "train.tf_record")
     if FLAGS.clean_data:
       train_examples = processor.get_train_examples(FLAGS.train_file, FLAGS.train_labels)
       num_train_steps = int(
@@ -806,7 +817,6 @@ def main(_):
       predict_batch_size=FLAGS.predict_batch_size)
 
   if FLAGS.do_train:
-    train_file = os.path.join(FLAGS.output_dir, "train.tf_record")
 
     tf.logging.info("***** Running training *****")
     #tf.logging.info("  Num examples = %d", len(train_examples))
@@ -866,6 +876,7 @@ def main(_):
         writer.write("%s = %s\n" % (key, str(result[key])))
 
   if FLAGS.do_predict:
+    predict_file = os.path.join(FLAGS.output_dir, "predict.tf_record")
     if FLAGS.clean_data:
       predict_examples = processor.get_test_examples(FLAGS.eval_file, FLAGS.eval_labels)
       num_actual_predict_examples = len(predict_examples)
@@ -882,7 +893,6 @@ def main(_):
       while len(predict_examples) % FLAGS.predict_batch_size != 0:
         predict_examples.append(PaddingInputExample())
 
-    predict_file = os.path.join(FLAGS.output_dir, "predict.tf_record")
 
     tf.logging.info("***** Running prediction*****")
     #tf.logging.info("  Num examples = %d (%d actual, %d padding)",
