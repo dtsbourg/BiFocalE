@@ -1,5 +1,5 @@
-MAGRET_DIR="cls_magret"
-PREFIX="clssplit_magret"
+MAGRET_DIR="multimask"
+PREFIX="cls_with_funcsplit_magret"
 
 python prepare_pretraining_data.py \
   --input_file=$MAGRET_DIR/${PREFIX}_tk.txt \
@@ -24,4 +24,3 @@ python prepare_pretraining_data.py \
   --masked_lm_prob=0.15 \
   --random_seed=1009 \
   --dupe_factor=50
-
