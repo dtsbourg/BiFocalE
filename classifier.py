@@ -260,7 +260,12 @@ class MethodNamingProcessor(DataProcessor):
       for row in islice(reader, from_line, from_line+FLAGS.max_seq_length):
         lines.append([int(r) for r in row])
       return lines
-      
+
+  @classmethod
+  def _read_sparse_adj(cls, path, suffix, idx=0):
+    fname = str(idx)+'_'+FLAGS.adj_prefix+suffix+'.mtx'
+    m = io.mmread(os.path.join(path, 'adj', fname))
+    return list(m.toarray()) 
 
   def get_train_examples(self, data_path, label_path):
     """See base class."""
@@ -280,8 +285,11 @@ class MethodNamingProcessor(DataProcessor):
     labels = [item for sublist in l for item in sublist]
     return labels
 
-  def get_adjacency(self, adj_path, idx=0):
-    return self._read_adj(adj_path, from_line=idx*(64+2))
+  def get_adjacency(self, adj_path, suffix="", idx=0):
+    if FLAGS.sparse_adj:
+      return self._read_sparse_adj(adj_path, suffix=suffix, idx=idx)
+    else:
+      return self._read_adj(adj_path, from_line=idx*(64+2))
 
   def _create_examples(self, lines, labels, set_type):
     """Creates examples for the training and dev sets."""
@@ -294,7 +302,8 @@ class MethodNamingProcessor(DataProcessor):
       label = tokenization.convert_to_unicode(label[0])
 
       adj_file = FLAGS.train_adj if set_type=="train" else FLAGS.eval_adj
-      adj = self.get_adjacency(adj_file, idx=i)
+      suffix = "_adj" if set_type=="train" else "_adj_val"
+      adj = self.get_adjacency(adj_file, suffix=suffix, idx=i)
 
       examples.append(
           InputExample(guid=guid, text_a=text, adjacency=adj, label=label))
@@ -414,7 +423,6 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
 
   # The mask has 1 for real tokens and 0 for padding tokens. Only real
   # tokens are attended to.
-  # TODO
   input_mask = [1] * len(input_ids)
 
   # Zero-pad up to the sequence length.
@@ -428,9 +436,10 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
   assert len(segment_ids) == max_seq_length
 
   split_label = tokenizer.tokenize(' '.join(example.label.split(',')))
-  split_label = tokenizer.convert_tokens_to_ids(split_label)
-  is_multilabel = len(split_label) > 0
+
+  is_multilabel = len(split_label) > 1 
   if is_multilabel:
+    split_label = tokenizer.convert_tokens_to_ids(split_label)
     label_id = []
     msk_count = 0
     for idx, token in enumerate(tokens_a):
@@ -856,11 +865,6 @@ def main(_):
 
     # This tells the estimator to run through the entire set.
     eval_steps = None
-    # However, if running eval on the TPU, you will need to specify the
-    # number of steps.
-    if FLAGS.use_tpu:
-      assert len(eval_examples) % FLAGS.eval_batch_size == 0
-      eval_steps = int(len(eval_examples) // FLAGS.eval_batch_size)
 
     eval_drop_remainder = True if FLAGS.use_tpu else False
     eval_input_fn = file_based_input_fn_builder(
