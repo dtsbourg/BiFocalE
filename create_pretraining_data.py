@@ -157,7 +157,7 @@ def gen_snippet_dataset(nb_snippets, pre='snippet_lit', suf='', tt_ratio=0.8, mo
     print(len(full_voc))
     return snippets, last_node_id
 
-def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='', name='split_magret', suffix='', max_len=64, nb_snippets=10, mode='magret', count=False, tt_ratio=0.1, clear=True, cls=True, sparse_adj=True, regen_vocab=False):
+def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='', name='split_magret', suffix='', max_len=64, nb_snippets=10, mode='magret', count=False, tt_ratio=0.1, clear=True, cls=True, sparse_adj=True, regen_vocab=True):
 
     voc = []; label_voc = []; c = Counter();
     total_len= 0; last_node_id = 0
@@ -185,6 +185,7 @@ def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='
             break 
         G_sub = G.subgraph(snippet[0]).copy()
         row = ["[CLS]"] if cls else []
+        row_order = []
         label = None
         masked_var = []
 
@@ -201,6 +202,7 @@ def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='
         did_mask_var = False
         contains_var = False
         for t in snippet[0]:
+            row_order.append(t)
             tk = get_name_from_token(feats[t], show_id=False)
             row.append(tk)
 
@@ -212,10 +214,14 @@ def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='
                     if (mode=='varname') and (did_mask_var == False):
                       while len(split) < 4:
                         split.append("[PAD]")
-                    for e_in, e_out in itertools.permutations(split,2):
-                        G_sub.add_edge(e_in+str(t), e_out+str(t))
-                    G_sub.add_edge(t,split[0]+str(t))
-
+                    split_ = []
+                    for i,s in enumerate(split):
+                        uid = str(s)+str(i)+str(t)
+                        split_.append(uid)
+                        row_order.append(uid)
+                    for e_in, e_out in itertools.permutations(split_,2):
+                        G_sub.add_edge(e_in, e_out)
+                    G_sub.add_edge(t,split_[0])
                     if (mode=='varname') and (did_mask_var == False):
                         for s in split:
                             masked_var.append(s)
@@ -230,7 +236,8 @@ def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='
         total_len += len(row)
         if count:
             c.update(row)
-
+        if train_count % 100 == 0:
+            print(train_count, test_count, row_order)
         if mode=='mask':
             rand_mask = np.random.randint(0,len(row))
             row[rand_mask] = "[MASK]"
@@ -263,7 +270,7 @@ def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='
                 with open(os.path.join(out_path, pre+name+suffix+'_adj.txt'), 'a', newline='') as f:
                     wr = csv.writer(f)
                     G_u = G_sub.to_undirected()
-                    adj = nx.adj_matrix(G_u).todense()
+                    adj = nx.adj_matrix(G_u, nodelist=row_order).todense()
                     final = np.zeros((max_len,max_len), dtype=int)
                     if cls:
                       final[1:adj.shape[0]+1, 1:adj.shape[1]+1] = adj
@@ -306,7 +313,7 @@ def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='
                 with open(os.path.join(out_path,pre+name+suffix+'_adj_val.txt'), 'a', newline='') as f:
                     wr = csv.writer(f)
                     G_u = G_sub.to_undirected()
-                    adj = nx.adj_matrix(G_u).todense()
+                    adj = nx.adj_matrix(G_u, nodelist=row_order).todense()
                     final = np.zeros((max_len,max_len), dtype=int)
                     if cls:
                       final[1:adj.shape[0]+1, 1:adj.shape[1]+1] = adj
