@@ -20,6 +20,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
+import re
+from scipy import io
+
 import collections
 import random
 import tensorflow as tf
@@ -60,10 +64,25 @@ flags.DEFINE_integer(
 
 flags.DEFINE_float("masked_lm_prob", 0.15, "Masked LM probability.")
 
+
+tf.flags.DEFINE_string(
+    "adj_prefix", None,
+    "The Cloud TPU to use for training. This should be either the name "
+    "used when creating the Cloud TPU, or a grpc://ip.address.of.tpu:8470 "
+    "url.")
+
 flags.DEFINE_float(
     "short_seq_prob", 0.1,
     "Probability of creating sequences which are shorter than the "
     "maximum length.")
+
+flags.DEFINE_bool(
+    "is_training", False,
+    "Whether to run the model in inference mode on the test set.")
+
+flags.DEFINE_bool(
+    "sparse_adj", False,
+    "Whether to run the model in inference mode on the test set.")
 
 
 class TrainingInstance(object):
@@ -213,26 +232,40 @@ def create_training_instances_with_adj(input_files, adj_files, tokenizer, max_se
         if tokens:
           all_documents[-1].append(tokens)
 
-  for adj_file in adj_files:
-    with tf.gfile.GFile(adj_file, "r") as reader:
-      while True:
-        line = tokenization.convert_to_unicode(reader.readline())
-        if not line:
-          break
-        line = line.strip()
 
-        # Empty lines are used as document delimiters
-        if (not line) or (len(line) == 0):
-          all_adjs.append([])
-        else:
-          tokens = list(map(int, line.split(',')))
-          if tokens:
-            all_adjs[-1].append(tokens)
+  if FLAGS.sparse_adj:
+    # adj_files = "sparse/adj/"
+    # prefix = 'sparse_mlm_split_magret'
+    suffix = "_adj" if FLAGS.is_training else "_adj_val"
+    adj_files_ = [f for f in os.listdir(adj_files) if re.match(r'.*_'+FLAGS.adj_prefix+suffix+'.mtx', f)]
+    adj_files_ = sorted(adj_files_, key = lambda x: (int(re.sub('\D','',x)),x))
+    for f in adj_files_:
+      print(adj_files, f, FLAGS.adj_prefix+suffix+'.mtx')
+      m = io.mmread(os.path.join(adj_files, f))
+      adj = list(m.toarray())
+      all_adjs.append(adj)
+
+  else:  
+    for adj_file in adj_files:
+      with tf.gfile.GFile(adj_file, "r") as reader:
+        while True:
+          line = tokenization.convert_to_unicode(reader.readline())
+          if not line:
+            break
+          line = line.strip()
+
+          # Empty lines are used as document delimiters
+          if (not line) or (len(line) == 0):
+            all_adjs.append([])
+          else:
+            tokens = list(map(int, line.split(',')))
+            if tokens:
+              all_adjs[-1].append(tokens)
 
   # Remove empty documents
   all_documents = [x for x in all_documents if x]
   all_adjs = [x for x in all_adjs if x]
-
+  print(len(all_documents), len(all_adjs))
   # c = list(zip(all_adjs, all_documents))
   # rng.shuffle(c)
   # all_adjs, all_documents = zip(*c)
@@ -585,17 +618,19 @@ def main(_):
   for input_pattern in FLAGS.input_file.split(","):
     input_files.extend(tf.gfile.Glob(input_pattern))
 
-  adj_files = []
-  for adj_pattern in FLAGS.adj_file.split(","):
-    adj_files.extend(tf.gfile.Glob(adj_pattern))
+  if FLAGS.sparse_adj:  
+    adj_files = FLAGS.adj_file
+  else:
+    adj_files = []
+    for adj_pattern in FLAGS.adj_file.split(","):
+      adj_files.extend(tf.gfile.Glob(adj_pattern))
 
   tf.logging.info("*** Reading from input files ***")
   for input_file in input_files:
     tf.logging.info("  %s", input_file)
 
   tf.logging.info("*** Reading from adjacency files ***")
-  for adj_file in adj_files:
-    tf.logging.info("  %s", adj_file)
+  tf.logging.info("  {}".format(adj_files))
 
   rng = random.Random(FLAGS.random_seed)
   instances = create_training_instances_with_adj(
