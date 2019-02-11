@@ -25,6 +25,7 @@ parser.add_argument('--mode', action="store", dest="mode")
 parser.add_argument('--pre', action="store", dest="pre")
 parser.add_argument('--nb_snippets', action="store", dest="nb_snippets", type=int)
 parser.add_argument('--sparse_adj', action="store_true", dest="sparse_adj")
+parser.add_argument('--regen_vocab', action="store_true", dest="regen_vocab")
 
 def get_name_from_token_id(tokenid, show_id = False):
     strtoken = inv_ast_symbol_dict.get(tokenid)
@@ -157,7 +158,7 @@ def gen_snippet_dataset(nb_snippets, pre='snippet_lit', suf='', tt_ratio=0.8, mo
     print(len(full_voc))
     return snippets, last_node_id
 
-def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='', name='split_magret', suffix='', max_len=64, nb_snippets=10, mode='magret', count=False, tt_ratio=0.1, clear=True, cls=True, sparse_adj=True, regen_vocab=True):
+def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='', name='split_magret', suffix='', max_len=64, nb_snippets=10, mode='magret', count=False, tt_ratio=0.1, clear=True, cls=True, sparse_adj=True, regen_vocab=False):
 
     voc = []; label_voc = []; c = Counter();
     total_len= 0; last_node_id = 0
@@ -173,8 +174,9 @@ def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='
         open(os.path.join(out_path, pre+name+suffix+'_label.txt'),     'w').close()
         open(os.path.join(out_path, pre+name+suffix+'_label_val.txt'), 'w').close()
         if regen_vocab:
-          open(os.path.join(out_path, 'vocab-code.txt'), 'w').close()
-        open(os.path.join(out_path, 'vocab-label.txt'), 'w').close()
+          open(os.path.join(out_path, pre+'vocab-code.txt'), 'w').close()
+        if mode=='funcdef':
+          open(os.path.join(out_path, pre+'vocab-label.txt'), 'w').close()
 
     for j in range(nb_snippets):
         try:
@@ -337,19 +339,20 @@ def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='
                       wr.writerow([])
                 test_count += 1
 
-    with open(os.path.join(out_path, 'vocab-code.txt'), 'a') as f:
-      f.write("[PAD]\n")
-      f.write("[UNK]\n")
-      f.write("[CLS]\n")
-      f.write("[SEP]\n")
-      f.write("[MASK]\n")
-      for v in voc:
-        f.write(v.lower())
-        f.write('\n')
-    print("Vocabulary length: ", len(voc)+5)
+    if regen_vocab:
+      with open(os.path.join(out_path, pre+'vocab-code.txt'), 'a') as f:
+        f.write("[PAD]\n")
+        f.write("[UNK]\n")
+        f.write("[CLS]\n")
+        f.write("[SEP]\n")
+        f.write("[MASK]\n")
+        for v in voc:
+          f.write(v.lower())
+          f.write('\n')
+      print("Vocabulary length: ", len(voc)+5)
 
     if mode=='funcdef':
-      with open(os.path.join(out_path, 'vocab-label.txt'), 'a') as f:
+      with open(os.path.join(out_path, pre+'vocab-label.txt'), 'a') as f:
         for v in label_voc:
           f.write(v)
           f.write("\n")
@@ -360,7 +363,11 @@ def main(args):
     G = json_graph.node_link_graph(G_data)
     var_map  = json.load(open(args.path+args.prefix+"-var_map.json"))
     func_map = json.load(open(args.path+args.prefix+"-func_map.json"))
-    gen_snippet_datasetv2(G, feats, var_map, func_map=func_map, pre=args.pre, mode=args.mode, out_path=args.out_path, nb_snippets=args.nb_snippets)
+    if args.mode == 'funcdef':
+      regen_vocab = False
+    else:
+      regen_vocab = args.regen_vocab
+    gen_snippet_datasetv2(G, feats, var_map, func_map=func_map, pre=args.pre, mode=args.mode, out_path=args.out_path, nb_snippets=args.nb_snippets, regen_vocab=regen_vocab)
 
 if __name__ == "__main__":
     args = parser.parse_args()
