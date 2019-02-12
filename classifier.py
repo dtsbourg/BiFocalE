@@ -311,7 +311,9 @@ class MethodNamingProcessor(DataProcessor):
 
       if FLAGS.shuffle:
         split_text = np.asarray(text.split(' '))
-	shuffle_idx = np.random.permutation(len(split_text))
+	shuffle_idx = np.random.permutation(range(1,len(split_text)))
+        shuffle_idx = np.insert(shuffle_idx,0,0)
+        text = ' '.join(split_text[shuffle_idx])
       #  print(text, ' '.join(split_text[shuffle_idx]))
         adj = np.asarray(adj)
         G = nx.from_numpy_matrix(adj)
