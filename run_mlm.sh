@@ -1,4 +1,4 @@
-MAGRET_DIR="multimask"
+MAGRET_DIR="sparse"
 export CUDA_VISIBLE_DEVICES=2
 
 python run_pretraining.py \
@@ -13,7 +13,7 @@ python run_pretraining.py \
   --bert_config_file=$MAGRET_DIR/bert_config.json \
   --train_batch_size=32 \
   --max_seq_length=64 \
-  --max_predictions_per_seq=5 \
+  --max_predictions_per_seq=1 \
   --num_train_steps=200000 \
   --save_checkpoints_steps=10000 \
   --num_warmup_steps=10 \
