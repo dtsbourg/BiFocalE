@@ -29,6 +29,8 @@ import modeling
 import optimization
 import tokenization
 import tensorflow as tf
+import numpy as np 
+import networkx as nx
 
 flags = tf.flags
 
@@ -146,6 +148,8 @@ flags.DEFINE_integer("iterations_per_loop", 1000,
                      "How many steps to make in each estimator call.")
 
 flags.DEFINE_bool("use_tpu", False, "Whether to use TPU or GPU/CPU.")
+
+flags.DEFINE_bool("shuffle", False, "Whether to run shuffle experiment.")
 
 tf.flags.DEFINE_string(
     "tpu_name", None,
@@ -304,6 +308,17 @@ class MethodNamingProcessor(DataProcessor):
       adj_file = FLAGS.train_adj if set_type=="train" else FLAGS.eval_adj
       suffix = "_adj" if set_type=="train" else "_adj_val"
       adj = self.get_adjacency(adj_file, suffix=suffix, idx=i)
+
+      if FLAGS.shuffle:
+        split_text = np.asarray(text.split(' '))
+	shuffle_idx = np.random.permutation(len(split_text))
+      #  print(text, ' '.join(split_text[shuffle_idx]))
+        adj = np.asarray(adj)
+        G = nx.from_numpy_matrix(adj)
+        shuffled_adj = nx.adjacency_matrix(G, nodelist=shuffle_idx).todense()
+        padded_adj = np.eye(64)
+        padded_adj[:len(shuffle_idx), :len(shuffle_idx)] = shuffled_adj
+        #print(adj, list(padded_adj))
 
       examples.append(
           InputExample(guid=guid, text_a=text, adjacency=adj, label=label))
@@ -800,6 +815,7 @@ def main(_):
     train_file = os.path.join(FLAGS.output_dir, "train.tf_record")
     if FLAGS.clean_data:
       train_examples = processor.get_train_examples(FLAGS.train_file, FLAGS.train_labels)
+      print(len(train_examples))
       num_train_steps = int(
           len(train_examples) / FLAGS.train_batch_size * FLAGS.num_train_epochs)
       file_based_convert_examples_to_features(
