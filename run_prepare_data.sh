@@ -1,10 +1,13 @@
-MAGRET_DIR="sparse"
-PREFIX="sparse_mlm_split_magret"
+MAGRET_DIR="large-corpus"
+PREFIX="keras_mlm_split_magret"
+SUFFIX="_keras"
+#PREFIX_KERAS="keras_mlm_split_magret_"
+#PREFIX_SKLEARN="sklearn_mlm_split_magret_"
 
 python prepare_pretraining_data.py \
   --input_file=$MAGRET_DIR/${PREFIX}_tk.txt \
-  --output_file=$MAGRET_DIR/tf_examples.tfrecord \
-  --vocab_file=$MAGRET_DIR/vocab-code.txt \
+  --output_file=$MAGRET_DIR/tf_examples${SUFFIX}.tfrecord \
+  --vocab_file=$MAGRET_DIR/global_vocab.csv \
   --adj_file=$MAGRET_DIR/adj/ \
   --do_lower_case=True \
   --max_seq_length=64 \
@@ -18,8 +21,8 @@ python prepare_pretraining_data.py \
 
 python prepare_pretraining_data.py \
   --input_file=$MAGRET_DIR/${PREFIX}_tk_val.txt \
-  --output_file=$MAGRET_DIR/tf_examples_val.tfrecord \
-  --vocab_file=$MAGRET_DIR/vocab-code.txt \
+  --output_file=$MAGRET_DIR/tf_examples_val${SUFFIX}.tfrecord \
+  --vocab_file=$MAGRET_DIR/global_vocab.csv \
   --adj_file=$MAGRET_DIR/adj/ \
   --do_lower_case=True \
   --max_seq_length=64 \
