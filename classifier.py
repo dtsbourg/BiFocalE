@@ -116,6 +116,10 @@ flags.DEFINE_bool(
     "Whether to run the model in inference mode on the test set.")
 
 flags.DEFINE_bool(
+    "do_embed", False,
+    "Whether to run the model in inference mode on the test set.")
+
+flags.DEFINE_bool(
     "sparse_adj", False,
     "Whether to run the model in inference mode on the test set.")
 
@@ -214,9 +218,11 @@ class InputFeatures(object):
                input_mask,
                segment_ids,
                label_id,
+               loss_mask=None,
                is_real_example=True):
     self.input_ids = input_ids
     self.input_mask = input_mask
+    self.loss_mask = loss_mask 
     self.adjacency = adjacency
     self.segment_ids = segment_ids
     self.label_id = label_id
@@ -242,6 +248,12 @@ class DataProcessor(object):
     """Gets the list of labels for this data set."""
     raise NotImplementedError()
 
+  def get_adjacency(self, adj_path, suffix="", fname=None, idx=0):
+    if FLAGS.sparse_adj:
+      return self._read_sparse_adj(adj_path, suffix=suffix, fname=fname, idx=idx)
+    else:
+      return self._read_adj(adj_path, from_line=idx*(64+2))
+
   @classmethod
   def _read_tsv(cls, input_file, quotechar=None):
     """Reads a tab separated value file."""
@@ -252,10 +264,6 @@ class DataProcessor(object):
         lines.append(line)
       return lines
 
-
-class MethodNamingProcessor(DataProcessor):
-  """Processor for the Method Naming data set."""
-
   @classmethod
   def _read_adj(cls, input_file, from_line=0):
     with tf.gfile.Open(input_file, "r") as f:
@@ -266,10 +274,41 @@ class MethodNamingProcessor(DataProcessor):
       return lines
 
   @classmethod
-  def _read_sparse_adj(cls, path, suffix, idx=0):
-    fname = str(idx)+'_'+FLAGS.adj_prefix+suffix+'.mtx'
+  def _read_sparse_adj(cls, path, suffix, fname=None, idx=0):
+    if fname==None:
+       fname = str(idx)+'_'+FLAGS.adj_prefix+suffix+'.mtx'
     m = io.mmread(os.path.join(path, 'adj', fname))
-    return list(m.toarray()) 
+    return list(m.toarray())
+
+  def get_multi_train_examples(self, paths):
+    """See base class."""
+    snippets = []; labels = []; prefix = []
+    for i,(data_path, label_path) in enumerate(paths):
+      snippets.append(self._read_tsv(data_path))
+      labels.append(self._read_tsv(label_path))
+      prefix.append([str(j)+"_"+FLAGS.adj_prefix.split(',')[i] for j in range(len(labels[-1]))])
+    snippets = [_ for s in snippets for _ in s]
+    labels   = [_ for l in labels for _ in l]
+    prefix   = [_ for p in prefix for _ in p]
+    return self._create_examples(snippets, labels, "train", prefix)
+
+  def get_multi_test_examples(self, paths):
+    """See base class."""
+    snippets = []; labels = []; prefix = []
+    for i,(data_path, label_path) in enumerate(paths):
+      snippets.append(self._read_tsv(data_path))
+      labels.append(self._read_tsv(label_path))
+      prefix.append([str(j)+"_"+FLAGS.adj_prefix.split(',')[i] for j in range(len(labels[-1]))])
+    snippets = [_ for s in snippets for _ in s]
+    labels   = [_ for l in labels for _ in l]
+    prefix   = [_ for p in prefix for _ in p]
+    return self._create_examples(snippets, labels, "test", prefix)
+
+  def get_labels(self, label_path):
+    """See base class."""
+    l = self._read_tsv(label_path)
+    labels = [item for sublist in l for item in sublist]
+    return labels
 
   def get_train_examples(self, data_path, label_path):
     """See base class."""
@@ -283,99 +322,51 @@ class MethodNamingProcessor(DataProcessor):
     labels = self._read_tsv(label_path)
     return self._create_examples(snippets, labels, "test")
 
-  def get_labels(self, label_path):
-    """See base class."""
-    l = self._read_tsv(label_path)
-    labels = [item for sublist in l for item in sublist]
-    return labels
-
-  def get_adjacency(self, adj_path, suffix="", idx=0):
-    if FLAGS.sparse_adj:
-      return self._read_sparse_adj(adj_path, suffix=suffix, idx=idx)
-    else:
-      return self._read_adj(adj_path, from_line=idx*(64+2))
-
-  def _create_examples(self, lines, labels, set_type):
+class MethodNamingProcessor(DataProcessor):
+  """Processor for the Method Naming data set."""
+  def _create_examples(self, lines, labels, set_type, prefix=None):
     """Creates examples for the training and dev sets."""
     examples = []
     tokenizer = tokenization.FullTokenizer(
         vocab_file=FLAGS.vocab_file, do_lower_case=FLAGS.do_lower_case)
+    
     for (i, (line, label)) in enumerate(zip(lines, labels)):
       guid = "%s-%s" % (set_type, str(i))
       text  = tokenization.convert_to_unicode(line[0])
       label = tokenization.convert_to_unicode(label[0])
 
-      adj_file = FLAGS.train_adj if set_type=="train" else FLAGS.eval_adj
       suffix = "_adj" if set_type=="train" else "_adj_val"
-      adj = self.get_adjacency(adj_file, suffix=suffix, idx=i)
+      adj_file = FLAGS.train_adj if set_type=="train" else FLAGS.eval_adj
+      if prefix == None:
+        adj = self.get_adjacency(adj_file, suffix=suffix, idx=i)
+      else:
+        fname = prefix[i]+suffix+'.mtx'
+        adj = self.get_adjacency(adj_file, suffix=suffix, fname=fname)
 
       if FLAGS.shuffle:
         split_text = np.asarray(text.split(' '))
 	shuffle_idx = np.random.permutation(range(1,len(split_text)))
         shuffle_idx = np.insert(shuffle_idx,0,0)
         text = ' '.join(split_text[shuffle_idx])
-      #  print(text, ' '.join(split_text[shuffle_idx]))
         adj = np.asarray(adj)
         G = nx.from_numpy_matrix(adj)
         shuffled_adj = nx.adjacency_matrix(G, nodelist=shuffle_idx).todense()
         padded_adj = np.eye(64)
         padded_adj[:len(shuffle_idx), :len(shuffle_idx)] = shuffled_adj
-        #print(adj, list(padded_adj))
 
       examples.append(
           InputExample(guid=guid, text_a=text, adjacency=adj, label=label))
-      #train_file = os.path.join(FLAGS.output_dir, "train.tf_record")
-      #file_based_convert_examples_to_features(
-      #    examples, self.get_labels(FLAGS.label_vocab), FLAGS.max_seq_length, tokenizer, train_file)
     return examples
 
 class VarNamingProcessor(DataProcessor):
   """Processor for the Method Naming data set."""
 
-  @classmethod
-  def _read_adj(cls, input_file, from_line=0):
-    with tf.gfile.Open(input_file, "r") as f:
-      reader = csv.reader(f, delimiter=',')
-      lines = []
-      for row in islice(reader, from_line, from_line+FLAGS.max_seq_length):
-        lines.append([int(r) for r in row])
-      return lines
-
-  @classmethod
-  def _read_sparse_adj(cls, path, suffix, idx=0):
-    fname = str(idx)+'_'+FLAGS.adj_prefix+suffix+'.mtx'
-    m = io.mmread(os.path.join(path, 'adj', fname))
-    return list(m.toarray())
-
-  def get_train_examples(self, data_path, label_path):
-    """See base class."""
-    snippets = self._read_tsv(data_path)
-    labels = self._read_tsv(label_path)
-    return self._create_examples(snippets, labels, "train")
-
-  def get_test_examples(self, data_path, label_path):
-    """See base class."""
-    snippets = self._read_tsv(data_path)
-    labels = self._read_tsv(label_path)
-    return self._create_examples(snippets, labels, "test")
-
-  def get_labels(self, label_path):
-    """See base class."""
-    l = self._read_tsv(label_path)
-    labels = [item for sublist in l for item in sublist]
-    return labels
-
-  def get_adjacency(self, adj_path, suffix="", idx=0):
-    if FLAGS.sparse_adj:
-      return self._read_sparse_adj(adj_path, suffix=suffix, idx=idx)
-    else:
-      return self._read_adj(adj_path, from_line=idx*(64+2))
-
-  def _create_examples(self, lines, labels, set_type):
+  def _create_examples(self, lines, labels, set_type, prefix=None):
     """Creates examples for the training and dev sets."""
     examples = []
     tokenizer = tokenization.FullTokenizer(
         vocab_file=FLAGS.vocab_file, do_lower_case=FLAGS.do_lower_case)
+
     for (i, (line, label)) in enumerate(zip(lines, labels)):
       if len(label) > 0:
         guid = "%s-%s" % (set_type, str(i))
@@ -383,9 +374,13 @@ class VarNamingProcessor(DataProcessor):
         text  = tokenization.convert_to_unicode(line[0])
         label = tokenization.convert_to_unicode(label[0])
         
-        adj_file = FLAGS.train_adj if set_type=="train" else FLAGS.eval_adj
         suffix = "_adj" if set_type=="train" else "_adj_val"
-        adj = self.get_adjacency(adj_file, suffix=suffix, idx=i) 
+        adj_file = FLAGS.train_adj if set_type=="train" else FLAGS.eval_adj
+        if prefix == None:
+          adj = self.get_adjacency(adj_file, suffix=suffix, idx=i) 
+        else:
+          fname = prefix[i]+suffix+'.mtx'
+          adj = self.get_adjacency(adj_file, suffix=suffix, fname=fname)
 
         examples.append(
             InputExample(guid=guid, text_a=text, adjacency=adj, label=label))
@@ -431,11 +426,16 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
   # the entire model is fine-tuned.
   tokens = []
   segment_ids = []
-
-  for token in tokens_a:
+  MSK = 4
+  #mask_ids = []
+  for idx, token in enumerate(tokens_a):
     tokens.append(token)
+   # if token == "[MASK]":
+   #   mask_ids.append(True)
+   # else:
+   #   mask_ids.append(False)
     segment_ids.append(0)
-
+  
   input_ids = tokenizer.convert_tokens_to_ids(tokens)
 
   # The mask has 1 for real tokens and 0 for padding tokens. Only real
@@ -480,6 +480,7 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
     tf.logging.info("segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
     if is_multilabel:
       tf.logging.info("label: {} (ids = {})".format(example.label, label_id))
+      #tf.logging.info("masked - idx: {})".format(mask_ids))
     else:
       tf.logging.info("label: %s (id = %d)" % (example.label, label_id))
     #for v in example.adjacency:
@@ -491,6 +492,7 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
       input_mask=input_mask,
       segment_ids=segment_ids,
       label_id=label_id,
+      #loss_mask=mask_ids,
       is_real_example=True)
   return feature
 
@@ -524,6 +526,7 @@ def file_based_convert_examples_to_features(
       features["label_ids"] = create_int_feature([feature.label_id])
     features["is_real_example"] = create_int_feature(
         [int(feature.is_real_example)])
+   # features["loss_mask"] = create_int_feature(feature.loss_mask)
     tf_example = tf.train.Example(features=tf.train.Features(feature=features))
     writer.write(tf_example.SerializeToString())
   writer.close()
@@ -542,6 +545,7 @@ def file_based_input_fn_builder(input_file, seq_length, is_training,
       "adjacency": tf.FixedLenFeature([seq_length*seq_length], tf.int64),
       "input_mask": tf.FixedLenFeature([seq_length], tf.int64),
       "segment_ids": tf.FixedLenFeature([seq_length], tf.int64),
+  #    "loss_mask": tf.FixedLenFeature([seq_length], tf.int64), 
       "label_ids": lids, 
       "is_real_example": tf.FixedLenFeature([], tf.int64),
   }
@@ -599,8 +603,28 @@ def _truncate_seq_pair(tokens_a, tokens_b, max_length):
       tokens_b.pop()
 
 
+def create_embedding_model(bert_config, is_training, input_ids, input_mask, adj_mask, segment_ids,
+                 labels, num_labels, use_one_hot_embeddings, loss_mask=None):
+  """Creates a classification model."""
+  model = modeling.BertModel(
+      config=bert_config,
+      is_training=is_training,
+      input_ids=input_ids,
+      input_mask=input_mask,
+      adj_mask=adj_mask,
+      token_type_ids=segment_ids,
+      use_one_hot_embeddings=use_one_hot_embeddings)
+
+  encoder_output = model.get_sequence_output()
+
+  with tf.variable_scope("loss"):
+    attention_output = model.get_attention_output()
+
+    return (encoder_output, attention_output)
+
+
 def create_model(bert_config, is_training, input_ids, input_mask, adj_mask, segment_ids,
-                 labels, num_labels, use_one_hot_embeddings):
+                 labels, num_labels, use_one_hot_embeddings, loss_mask=None):
   """Creates a classification model."""
   model = modeling.BertModel(
       config=bert_config,
@@ -612,11 +636,7 @@ def create_model(bert_config, is_training, input_ids, input_mask, adj_mask, segm
       use_one_hot_embeddings=use_one_hot_embeddings)
 
   is_multilabel = FLAGS.task_name == 'varname'
-  # In the demo, we are doing a simple classification task on the entire
-  # segment.
-  #
-  # If you want to use the token-level output, use model.get_sequence_output()
-  # instead.
+
   if is_multilabel:
     output_layer = model.get_sequence_output()
     final_hidden_shape = modeling.get_shape_list(output_layer, expected_rank=3)
@@ -626,7 +646,7 @@ def create_model(bert_config, is_training, input_ids, input_mask, adj_mask, segm
   else:
     output_layer = model.get_pooled_output()
     hidden_size = output_layer.shape[-1].value
-  
+ 
   output_weights = tf.get_variable(
       "output_weights", [num_labels, hidden_size],
       initializer=tf.truncated_normal_initializer(stddev=0.02))
@@ -652,9 +672,11 @@ def create_model(bert_config, is_training, input_ids, input_mask, adj_mask, segm
 
     one_hot_labels = tf.one_hot(labels, depth=num_labels, dtype=tf.float32)
     per_example_loss = -tf.reduce_sum(one_hot_labels * log_probs, axis=-1)
+    #loss_mask = tf.cast(loss_mask, tf.bool)
 
     if is_multilabel:
-      loss = tf.reduce_sum(per_example_loss)
+      #loss = tf.reduce_sum(tf.boolean_mask(per_example_loss, loss_mask))
+      loss = tf.reduce_mean(per_example_loss)
     else:
       loss = tf.reduce_mean(per_example_loss)
 
@@ -679,6 +701,7 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
     input_mask = features["input_mask"]
     segment_ids = features["segment_ids"]
     label_ids = features["label_ids"]
+    #loss_mask = features["loss_mask"] if FLAGS.task_name == "varname" else None
     adjacency = features["adjacency"]
     
     is_real_example = None
@@ -689,12 +712,18 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
 
     is_training = (mode == tf.estimator.ModeKeys.TRAIN)
 
-    (total_loss, per_example_loss, logits, probabilities, attention_output) = create_model(
-        bert_config, is_training, input_ids, input_mask, adjacency, segment_ids, label_ids,
-        num_labels, use_one_hot_embeddings)
+    #(total_loss, per_example_loss, logits, probabilities, attention_output) = create_model(
+    #    bert_config, is_training, input_ids, input_mask, adjacency, segment_ids, label_ids,
+    #    num_labels, use_one_hot_embeddings, loss_mask)
+    if FLAGS.do_embed:
+      (encoder_output, attention_output) = create_embedding_model(
+          bert_config, is_training, input_ids, input_mask, adjacency, segment_ids, label_ids,
+          num_labels, use_one_hot_embeddings)
+    else:
+      (total_loss, per_example_loss, logits, probabilities, attention_output) = create_model(
+          bert_config, is_training, input_ids, input_mask, adjacency, segment_ids, label_ids,
+          num_labels, use_one_hot_embeddings)
 
-    #logits = tf.unstack(logits, axis=0)
-    #probabilities = tf.nn.softmax(logits, axis=-1)
 
     tvars = tf.trainable_variables()
     initialized_variable_names = {}
@@ -732,7 +761,6 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
           train_op=train_op,
           scaffold_fn=scaffold_fn)
     elif mode == tf.estimator.ModeKeys.EVAL:
-
       def metric_fn(per_example_loss, label_ids, logits, is_real_example):
         predictions = tf.argmax(logits, axis=-1, output_type=tf.int32)
         accuracy = tf.metrics.accuracy(
@@ -750,6 +778,15 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
           loss=total_loss,
           eval_metrics=eval_metrics,
           scaffold_fn=scaffold_fn)
+    elif FLAGS.do_embed:
+       output_spec = tf.contrib.tpu.TPUEstimatorSpec(
+          mode=mode,
+          predictions={
+          "encoder_output": encoder_output,
+          "attention_output": attention_output
+       },
+       scaffold_fn=scaffold_fn)
+       return output_spec
     else:
       output_spec = tf.contrib.tpu.TPUEstimatorSpec(
           mode=mode,
@@ -816,8 +853,16 @@ def main(_):
   if FLAGS.do_train:
     train_file = os.path.join(FLAGS.output_dir, "train.tf_record")
     if FLAGS.clean_data:
-      train_examples = processor.get_train_examples(FLAGS.train_file, FLAGS.train_labels)
-      print(len(train_examples))
+      all_train = FLAGS.train_file.split(',')
+      all_label = FLAGS.train_labels.split(',')
+      nb_files = len(all_train)
+      assert len(all_train) == len(all_label)
+      if nb_files > 0:
+        files = zip(all_train, all_label)
+        print(files)
+        train_examples = processor.get_multi_train_examples(files)
+      else:
+        train_examples = processor.get_train_examples(FLAGS.train_file, FLAGS.train_labels)
       num_train_steps = int(
           len(train_examples) / FLAGS.train_batch_size * FLAGS.num_train_epochs)
       file_based_convert_examples_to_features(
@@ -860,7 +905,16 @@ def main(_):
     estimator.train(input_fn=train_input_fn, max_steps=num_train_steps)
  
   if FLAGS.do_eval:
-    eval_examples = processor.get_test_examples(FLAGS.eval_file, FLAGS.eval_labels)
+    all_eval = FLAGS.eval_file.split(',')
+    all_label = FLAGS.eval_labels.split(',')
+    nb_files = len(all_eval)
+    assert len(all_eval) == len(all_label)
+    if nb_files > 0:
+      files = zip(all_eval, all_label)
+      print(files)
+      eval_examples = processor.get_multi_test_examples(files)
+    else:
+      eval_examples = processor.get_test_examples(FLAGS.eval_file, FLAGS.eval_labels)
     num_actual_eval_examples = len(eval_examples)
     if FLAGS.use_tpu:
       # TPU requires a fixed batch size for all batches, therefore the number
@@ -903,7 +957,18 @@ def main(_):
   if FLAGS.do_predict:
     predict_file = os.path.join(FLAGS.output_dir, "predict.tf_record")
     if FLAGS.clean_data:
-      predict_examples = processor.get_test_examples(FLAGS.eval_file, FLAGS.eval_labels)
+      all_eval = FLAGS.eval_file.split(',')
+      all_label = FLAGS.eval_labels.split(',')
+      nb_files = len(all_eval)
+      assert len(all_eval) == len(all_label)
+      if nb_files > 0:
+        files = zip(all_eval, all_label)
+        print(files)
+        predict_examples = processor.get_multi_test_examples(files)
+      else:
+        predict_examples = processor.get_test_examples(FLAGS.eval_file, FLAGS.eval_labels)
+
+     # predict_examples = processor.get_test_examples(FLAGS.eval_file, FLAGS.eval_labels)
       num_actual_predict_examples = len(predict_examples)
       file_based_convert_examples_to_features(predict_examples, label_list,
                                               FLAGS.max_seq_length, tokenizer,
@@ -934,27 +999,45 @@ def main(_):
 
     result = estimator.predict(input_fn=predict_input_fn)
 
-    output_predict_file = os.path.join(FLAGS.output_dir, "test_results.tsv")
-    with tf.gfile.GFile(output_predict_file, "w") as writer:
-      num_written_lines = 0
-      tf.logging.info("***** Predict results *****")
-      for (i, prediction) in enumerate(result):
-        probabilities = prediction["probabilities"]
-        if task_name=='varname':
-          for class_prob in probabilities: 
+    #assert num_written_lines == num_actual_predict_examples
+
+    if FLAGS.do_embed:
+      output_predict_file = os.path.join(FLAGS.output_dir, "encoder_results.tsv")
+      with tf.gfile.GFile(output_predict_file, "w") as writer:
+        num_written_lines = 0
+        tf.logging.info("***** Extracting encoder results *****")
+        for (i, prediction) in enumerate(result):
+          embeddings = prediction["encoder_output"]
+          for emb in embeddings: 
             out_line = [] 
-            for prob in class_prob:
-              out_line.append(str(prob))
+            for e in emb:
+              out_line.append(str(e))
             writer.write('\t'.join(out_line)+"\n")
           if i >= num_actual_predict_examples:
             break
-        else:        
-          output_line = "\t".join(
-               str(class_probability)
-               for class_probability in probabilities) + "\n"
-          writer.write(output_line)
-        num_written_lines += 1
-    #assert num_written_lines == num_actual_predict_examples
+          num_written_lines += 1
+
+    else:
+      output_predict_file = os.path.join(FLAGS.output_dir, "test_results.tsv")
+      with tf.gfile.GFile(output_predict_file, "w") as writer:
+        num_written_lines = 0
+        tf.logging.info("***** Predict results *****")
+        for (i, prediction) in enumerate(result):
+          probabilities = prediction["probabilities"]
+          if task_name=='varname':
+            for class_prob in probabilities: 
+              out_line = [] 
+              for prob in class_prob:
+                out_line.append(str(prob))
+              writer.write('\t'.join(out_line)+"\n")
+            if i >= num_actual_predict_examples:
+              break
+          else:        
+            output_line = "\t".join(
+                 str(class_probability)
+                 for class_probability in probabilities) + "\n"
+            writer.write(output_line)
+          num_written_lines += 1
 
     output_predict_file = os.path.join(FLAGS.output_dir, "attention_results.tsv")
     with tf.gfile.GFile(output_predict_file, "w") as writer:
