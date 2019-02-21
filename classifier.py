@@ -255,10 +255,10 @@ class DataProcessor(object):
       return self._read_adj(adj_path, from_line=idx*(64+2))
 
   @classmethod
-  def _read_tsv(cls, input_file, quotechar=None):
+  def _read_tsv(cls, input_file, delim='\t', quotechar=None):
     """Reads a tab separated value file."""
     with tf.gfile.Open(input_file, "r") as f:
-      reader = csv.reader(f, delimiter="\t", quotechar=quotechar)
+      reader = csv.reader(f, delimiter=delim, quotechar=quotechar)
       lines = []
       for line in reader:
         lines.append(line)
@@ -312,14 +312,16 @@ class DataProcessor(object):
 
   def get_train_examples(self, data_path, label_path):
     """See base class."""
-    snippets = self._read_tsv(data_path)
-    labels = self._read_tsv(label_path)
+    snippets = self._read_tsv(data_path, delim=' ')
+    labels = self._read_tsv(label_path, delim=' ')
     return self._create_examples(snippets, labels, "train")
 
   def get_test_examples(self, data_path, label_path):
     """See base class."""
-    snippets = self._read_tsv(data_path)
-    labels = self._read_tsv(label_path)
+    snippets = self._read_tsv(data_path, delim=' ')
+    labels = self._read_tsv(label_path, delim=' ')
+    #snippets = self._read_tsv(data_path)
+    #labels = self._read_tsv(label_path)
     return self._create_examples(snippets, labels, "test")
 
 class MethodNamingProcessor(DataProcessor):
@@ -332,9 +334,12 @@ class MethodNamingProcessor(DataProcessor):
     
     for (i, (line, label)) in enumerate(zip(lines, labels)):
       guid = "%s-%s" % (set_type, str(i))
-      text  = tokenization.convert_to_unicode(line[0])
+      if len(line) > 0:
+        text = tokenization.convert_to_unicode(' '.join(line))
+      else:
+        text  = tokenization.convert_to_unicode(line[0])
+      
       label = tokenization.convert_to_unicode(label[0])
-
       suffix = "_adj" if set_type=="train" else "_adj_val"
       adj_file = FLAGS.train_adj if set_type=="train" else FLAGS.eval_adj
       if prefix == None:
@@ -483,8 +488,8 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
       #tf.logging.info("masked - idx: {})".format(mask_ids))
     else:
       tf.logging.info("label: %s (id = %d)" % (example.label, label_id))
-    #for v in example.adjacency:
-    #  tf.logging.info("adjacency: %s" % " ".join([str(x) for x in v]))
+    for v in example.adjacency:
+      tf.logging.info("adjacency: %s" % " ".join([str(x) for x in v]))
 
   feature = InputFeatures(
       input_ids=input_ids,
@@ -857,7 +862,7 @@ def main(_):
       all_label = FLAGS.train_labels.split(',')
       nb_files = len(all_train)
       assert len(all_train) == len(all_label)
-      if nb_files > 0:
+      if nb_files > 1:
         files = zip(all_train, all_label)
         print(files)
         train_examples = processor.get_multi_train_examples(files)
@@ -909,7 +914,7 @@ def main(_):
     all_label = FLAGS.eval_labels.split(',')
     nb_files = len(all_eval)
     assert len(all_eval) == len(all_label)
-    if nb_files > 0:
+    if nb_files > 1:
       files = zip(all_eval, all_label)
       print(files)
       eval_examples = processor.get_multi_test_examples(files)
@@ -961,7 +966,7 @@ def main(_):
       all_label = FLAGS.eval_labels.split(',')
       nb_files = len(all_eval)
       assert len(all_eval) == len(all_label)
-      if nb_files > 0:
+      if nb_files > 1:
         files = zip(all_eval, all_label)
         print(files)
         predict_examples = processor.get_multi_test_examples(files)
