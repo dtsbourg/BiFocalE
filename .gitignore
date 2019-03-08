@@ -4,3 +4,10 @@ __pycache__/
 *.pdf
 *.tfrecord
 *.png
+*.txt
+*.swp
+*.zip
+pretraining_output*
+cls_output*
+*/adj/
+*/data/
