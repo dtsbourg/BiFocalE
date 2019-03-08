@@ -1,11 +1,11 @@
-MAGRET_DIR="large-corpus"
+MAGRET_DIR="thesis"
 
 python create_pretraining_data.py \
   --path=$MAGRET_DIR/data/ \
-  --prefix=keras \
+  --prefix=thesis \
   --out_path=$MAGRET_DIR \
-  --mode=funcdef \
-  --pre=keras_cls_ \
+  --mode=varname \
+  --pre=thesis_varname_ \
   --nb_snippets=100000 \
   --sparse_adj \
   --regen_vocab

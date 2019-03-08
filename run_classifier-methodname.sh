@@ -2,7 +2,7 @@ MAGRET_DIR="sparse"
 PREFIX="sparse_fname2_split_magret"
 PRETRAIN_DIR="sparse"
 
-export CUDA_VISIBLE_DEVICES=2
+export CUDA_VISIBLE_DEVICES=0
 
 python classifier.py \
   --do_train=True \
@@ -19,15 +19,15 @@ python classifier.py \
   --eval_labels=$MAGRET_DIR/${PREFIX}_label_val.txt \
   --eval_adj=$MAGRET_DIR \
   --data_dir=$MAGRET_DIR \
-  --output_dir=$MAGRET_DIR/cls_output-shuffle-new\
+  --output_dir=$MAGRET_DIR/cls_output-methodname \
   --max_seq_length=64 \
   --train_batch_size=16 \
-  --learning_rate=1e-4 \
-  --num_train_epochs=500 \
+  --learning_rate=1e-3 \
+  --num_train_epochs=100 \
   --save_checkpoints_steps=500 \
   --init_checkpoint=$PRETRAIN_DIR/pretraining_output-200k/model.ckpt-200000 \
   --bert_config_file=$PRETRAIN_DIR/bert_config.json \
   --sparse_adj=True \
   --adj_prefix=${PREFIX} \
   --clean_data=True \
-  --shuffle=True
+#  --shuffle=True
