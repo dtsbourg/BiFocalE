@@ -868,8 +868,11 @@ def main(_):
         train_examples = processor.get_multi_train_examples(files)
       else:
         train_examples = processor.get_train_examples(FLAGS.train_file, FLAGS.train_labels)
-      num_train_steps = int(
-          len(train_examples) / FLAGS.train_batch_size * FLAGS.num_train_epochs)
+      if FLAGS.num_train_epochs == 0:
+         num_train_steps = 1
+      else:
+        num_train_steps = int(
+            len(train_examples) / FLAGS.train_batch_size * FLAGS.num_train_epochs)
       file_based_convert_examples_to_features(
           train_examples, label_list, FLAGS.max_seq_length, tokenizer, train_file)
     else:
