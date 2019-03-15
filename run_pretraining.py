@@ -275,6 +275,7 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
         "masked_lm_positions": masked_lm_positions,
         "label_ids": label_ids,
         "input_ids": input_ids,
+        "adjacency": adjacency,
         "attention_outputs": attention_output
       }
 
@@ -512,6 +513,7 @@ def main(_):
   tf.gfile.MakeDirs(FLAGS.output_dir)
 
   input_files = []
+  print(FLAGS.input_file)
   for input_pattern in FLAGS.input_file.split(","):
     input_files.extend(tf.gfile.Glob(input_pattern))
 
@@ -662,13 +664,18 @@ def main(_):
         with tf.gfile.GFile(os.path.join(FLAGS.output_dir, 'eval_results_att.txt'), 'w') as writer:
             for r in estimator.predict(input_fn, yield_single_examples=True):
               att = r['attention_outputs']
+              adj = r['adjacency']
               break
 
-            for i in range(12):
-                for j in range(64):
-                  for k in range(64):
-                    writer.write("%s " % str(att[i][j][k]))
-                writer.write("\n")
+            for l in range(3):
+              for i in range(6):
+                  for j in range(64):
+                    for k in range(64):
+                      writer.write("%s " % str(att[i][j][64*l+k]))
+                  writer.write("\n")
+            with tf.gfile.GFile(os.path.join(FLAGS.output_dir, 'eval_results_adj.txt'), 'w') as writer:
+              writer.write("%s " % str(list(adj))) 
+              writer.write("\n")
 
 if __name__ == "__main__":
   flags.mark_flag_as_required("input_file")

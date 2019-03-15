@@ -266,9 +266,6 @@ def create_training_instances_with_adj(input_files, adj_files, tokenizer, max_se
   all_documents = [x for x in all_documents if x]
   all_adjs = [x for x in all_adjs if x]
   print(len(all_documents), len(all_adjs))
-  # c = list(zip(all_adjs, all_documents))
-  # rng.shuffle(c)
-  # all_adjs, all_documents = zip(*c)
 
   vocab_words = list(tokenizer.vocab.keys())
   instances = []
@@ -503,6 +500,7 @@ def create_instances_from_document_with_adj(
         segment_ids = []
         # tokens.append("[CLS]")
         # segment_ids.append(0)
+        print(tokens_a)
         for token in tokens_a:
           tokens.append(token)
           segment_ids.append(0)

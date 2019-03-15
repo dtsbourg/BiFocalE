@@ -175,7 +175,7 @@ def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='
         open(os.path.join(out_path, pre+name+suffix+'_label_val.txt'), 'w').close()
         if regen_vocab:
           open(os.path.join(out_path, pre+'vocab-code.txt'), 'w').close()
-        if mode=='funcdef':
+        if mode=='methodname':
           open(os.path.join(out_path, pre+'vocab-label.txt'), 'w').close()
 
     for j in range(nb_snippets):
@@ -193,7 +193,7 @@ def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='
 
         first_tok = snippet[0][0]
         tk = get_name_from_token(feats[first_tok], show_id=False)
-        if mode=='funcdef':
+        if mode=='methodname':
           if tk=='FunctionDef':
             label = gen_func_label(first_tok, func_map)
             if label not in label_voc:
@@ -257,7 +257,7 @@ def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='
                     sep='\n' if not mode=='magret' else '\n\n'
                     f.write(sep)
 
-                if mode=='funcdef' and (label is not None):
+                if mode=='methodname' and (label is not None):
                   with open(os.path.join(out_path, pre+name+suffix+'_label.txt'), 'a') as f:
                       f.write(label+'\n')
 
@@ -300,7 +300,7 @@ def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='
                     sep='\n' if not mode=='magret' else '\n\n'
                     f.write(sep)
 
-                if mode=='funcdef' and (label is not None):
+                if mode=='methodname' and (label is not None):
                   with open(os.path.join(out_path, pre+name+suffix+'_label_val.txt'), 'a') as f:
                       f.write(label+'\n')
 
@@ -351,7 +351,7 @@ def gen_snippet_datasetv2(G, feats, var_map, func_map=None, out_path=None, pre='
           f.write('\n')
       print("Vocabulary length: ", len(voc)+5)
 
-    if mode=='funcdef':
+    if mode=='methodname':
       with open(os.path.join(out_path, pre+'vocab-label.txt'), 'a') as f:
         for v in label_voc:
           f.write(v)
@@ -363,7 +363,7 @@ def main(args):
     G = json_graph.node_link_graph(G_data)
     var_map  = json.load(open(args.path+args.prefix+"-var_map.json"))
     func_map = json.load(open(args.path+args.prefix+"-func_map.json"))
-    if args.mode == 'funcdef':
+    if args.mode == 'methodname':
       regen_vocab = False
     else:
       regen_vocab = args.regen_vocab

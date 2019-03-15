@@ -350,7 +350,7 @@ class MethodNamingProcessor(DataProcessor):
 
       if FLAGS.shuffle:
         split_text = np.asarray(text.split(' '))
-	shuffle_idx = np.random.permutation(range(1,len(split_text)))
+        shuffle_idx = np.random.permutation(range(1,len(split_text)))
         shuffle_idx = np.insert(shuffle_idx,0,0)
         text = ' '.join(split_text[shuffle_idx])
         adj = np.asarray(adj)
@@ -866,6 +866,7 @@ def main(_):
         files = zip(all_train, all_label)
         print(files)
         train_examples = processor.get_multi_train_examples(files)
+        print(len(train_examples))
       else:
         train_examples = processor.get_train_examples(FLAGS.train_file, FLAGS.train_labels)
       if FLAGS.num_train_epochs == 0:
@@ -1038,7 +1039,8 @@ def main(_):
               for prob in class_prob:
                 out_line.append(str(prob))
               writer.write('\t'.join(out_line)+"\n")
-            if i >= num_actual_predict_examples:
+            #if i >= num_actual_predict_examples:
+            if i >= FLAGS.max_nb_preds:
               break
           else:        
             output_line = "\t".join(

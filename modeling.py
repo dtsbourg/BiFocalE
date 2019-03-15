@@ -922,7 +922,6 @@ def transformer_model(input_tensor,
             intermediate_size,
             activation=intermediate_act_fn,
             kernel_initializer=create_initializer(initializer_range))
-
       # Down-project back to `hidden_size` then add the residual.
       with tf.variable_scope("output"):
         layer_output = tf.layers.dense(
@@ -939,10 +938,10 @@ def transformer_model(input_tensor,
     for layer_output in all_layer_outputs:
       final_output = reshape_from_matrix(layer_output, input_shape)
       final_outputs.append(final_output)
-    #for att_output_prob in all_attention_output_probs:
-    #  final_att_output = reshape_from_matrix(att_output_prob, input_shape)
-    #  final_attention_outputs.append(final_att_output)
-    return final_outputs, attention_output_probs #final_attention_outputs
+    for att_output_prob in all_attention_output_probs:
+      #final_att_output = reshape_from_matrix(att_output_prob, input_shape)
+      final_attention_outputs.append(att_output_prob)
+    return final_outputs, tf.concat(final_attention_outputs, axis=-1)
   else:
     final_output = reshape_from_matrix(prev_output, input_shape)
     return final_output, attention_output_probs
