@@ -5,10 +5,10 @@ python run_pretraining.py \
   --input_file=$MAGRET_DIR/tf_examples_mlm.tfrecord \
   --validation_file=$MAGRET_DIR/tf_examples_val_mlm.tfrecord \
   --output_dir=$MAGRET_DIR/pretraining_output-small-300k \
-  --do_train=True \
-  --do_eval=True \
+  --do_train=False \
+  --do_eval=False \
   --do_predict=True \
-  --save_prediction=True \
+  --save_prediction=False \
   --save_attention=True \
   --bert_config_file=$MAGRET_DIR/shallow_config.json \
   --train_batch_size=32 \

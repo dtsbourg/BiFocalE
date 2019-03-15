@@ -1,8 +1,67 @@
 MAGRET_DIR="large-corpus"
-PREFIX="sparse_varname_split_magret"
-PREFIX_PYTORCH="pytorch_cls_split_magret"
-PREFIX_KERAS="keras_cls_split_magret"
-PREFIX_SKLEARN="sklearn_cls_split_magret"
+
+
+PREFIX="_methodname_split_magret"
+ADJ_PREFIX="_lg_corpus"
+SUFFIX="_methodname_large"
+
+KERAS_PREFIX="keras${PREFIX}"
+SKLEARN_PREFIX="sklearn${PREFIX}"
+PYTORCH_PREFIX="pytorch${PREFIX}"
+ANSIBLE_PREFIX="ansible${PREFIX}"
+REQUESTS_PREFIX="requests${PREFIX}"
+DJANGO_PREFIX="django${PREFIX}"
+HTTPIE_PREFIX="httpie${PREFIX}"
+YT_PREFIX="youtube-dl${PREFIX}"
+FLASK_PREFIX="flask${PREFIX}"
+BERT_PREFIX="bert${PREFIX}"
+
+
+IN_KERAS=$MAGRET_DIR/${KERAS_PREFIX}_tk.txt
+IN_SKLEARN=$MAGRET_DIR/${SKLEARN_PREFIX}_tk.txt
+IN_PYTORCH=$MAGRET_DIR/${PYTORCH_PREFIX}_tk.txt
+IN_ANSIBLE=$MAGRET_DIR/${ANSIBLE_PREFIX}_tk.txt
+IN_REQUESTS=$MAGRET_DIR/${REQUESTS_PREFIX}_tk.txt
+IN_DJANGO=$MAGRET_DIR/${DJANGO_PREFIX}_tk.txt
+IN_HTTPIE=$MAGRET_DIR/${HTTPIE_PREFIX}_tk.txt
+IN_YT=$MAGRET_DIR/${YT_PREFIX}_tk.txt
+IN_FLASK=$MAGRET_DIR/${FLASK_PREFIX}_tk.txt
+IN_BERT=$MAGRET_DIR/${BERT_PREFIX}_tk.txt
+
+IN_LABEL_KERAS=$MAGRET_DIR/${KERAS_PREFIX}_label.txt
+IN_LABEL_SKLEARN=$MAGRET_DIR/${SKLEARN_PREFIX}_label.txt
+IN_LABEL_PYTORCH=$MAGRET_DIR/${PYTORCH_PREFIX}_label.txt
+IN_LABEL_ANSIBLE=$MAGRET_DIR/${ANSIBLE_PREFIX}_label.txt
+IN_LABEL_REQUESTS=$MAGRET_DIR/${REQUESTS_PREFIX}_label.txt
+IN_LABEL_DJANGO=$MAGRET_DIR/${DJANGO_PREFIX}_label.txt
+IN_LABEL_HTTPIE=$MAGRET_DIR/${HTTPIE_PREFIX}_label.txt
+IN_LABEL_YT=$MAGRET_DIR/${YT_PREFIX}_label.txt
+IN_LABEL_FLASK=$MAGRET_DIR/${FLASK_PREFIX}_label.txt
+IN_LABEL_BERT=$MAGRET_DIR/${BERT_PREFIX}_label.txt
+
+IN_VAL_KERAS=$MAGRET_DIR/${KERAS_PREFIX}_tk_val.txt
+IN_VAL_SKLEARN=$MAGRET_DIR/${SKLEARN_PREFIX}_tk_val.txt
+IN_VAL_PYTORCH=$MAGRET_DIR/${PYTORCH_PREFIX}_tk_val.txt
+IN_VAL_ANSIBLE=$MAGRET_DIR/${ANSIBLE_PREFIX}_tk_val.txt
+IN_VAL_REQUESTS=$MAGRET_DIR/${REQUESTS_PREFIX}_tk_val.txt
+IN_VAL_DJANGO=$MAGRET_DIR/${DJANGO_PREFIX}_tk_val.txt
+IN_VAL_HTTPIE=$MAGRET_DIR/${HTTPIE_PREFIX}_tk_val.txt
+IN_VAL_YT=$MAGRET_DIR/${YT_PREFIX}_tk_val.txt
+IN_VAL_FLASK=$MAGRET_DIR/${FLASK_PREFIX}_tk_val.txt
+IN_VAL_BERT=$MAGRET_DIR/${BERT_PREFIX}_tk_val.txt
+
+IN_LABEL_VAL_KERAS=$MAGRET_DIR/${KERAS_PREFIX}_label_val.txt
+IN_LABEL_VAL_SKLEARN=$MAGRET_DIR/${SKLEARN_PREFIX}_label_val.txt
+IN_LABEL_VAL_PYTORCH=$MAGRET_DIR/${PYTORCH_PREFIX}_label_val.txt
+IN_LABEL_VAL_ANSIBLE=$MAGRET_DIR/${ANSIBLE_PREFIX}_label_val.txt
+IN_LABEL_VAL_REQUESTS=$MAGRET_DIR/${REQUESTS_PREFIX}_label_val.txt
+IN_LABEL_VAL_DJANGO=$MAGRET_DIR/${DJANGO_PREFIX}_label_val.txt
+IN_LABEL_VAL_HTTPIE=$MAGRET_DIR/${HTTPIE_PREFIX}_label_val.txt
+IN_LABEL_VAL_YT=$MAGRET_DIR/${YT_PREFIX}_label_val.txt
+IN_LABEL_VAL_FLASK=$MAGRET_DIR/${FLASK_PREFIX}_label_val.txt
+IN_LABEL_VAL_BERT=$MAGRET_DIR/${BERT_PREFIX}_label_val.txt
+
+
 PRETRAIN_DIR="large-corpus"
 
 export CUDA_VISIBLE_DEVICES=1
@@ -11,26 +70,28 @@ python classifier.py \
   --do_train=True \
   --do_eval=False \
   --do_predict=True \
-  --max_nb_preds=600 \
+  --max_nb_preds=100000 \
   --task_name=methodname \
   --label_vocab=$MAGRET_DIR/label_vocab.csv \
   --vocab_file=$MAGRET_DIR/global_vocab.csv \
-  --train_file=$MAGRET_DIR/${PREFIX_KERAS}_tk.txt,$MAGRET_DIR/${PREFIX_PYTORCH}_tk.txt,$MAGRET_DIR/${PREFIX_SKLEARN}_tk.txt \
-  --train_labels=$MAGRET_DIR/${PREFIX_KERAS}_label.txt,$MAGRET_DIR/${PREFIX_PYTORCH}_label.txt,$MAGRET_DIR/${PREFIX_SKLEARN}_label.txt \
+  --init_checkpoint=$PRETRAIN_DIR/pretraining_output-400k/model.ckpt-400000 \
+  --train_file=$IN_KERAS,$IN_SKLEARN,$IN_PYTORCH,$IN_ANSIBLE,$IN_REQUESTS,$IN_DJANGO,$IN_HTTPIE,$IN_YT,$IN_FLASK,$IN_BERT \
+  --train_labels=$IN_LABEL_KERAS,$IN_LABEL_SKLEARN,$IN_LABEL_PYTORCH,$IN_LABEL_ANSIBLE,$IN_LABEL_REQUESTS,$IN_LABEL_DJANGO,$IN_LABEL_HTTPIE,$IN_LABEL_YT,$IN_LABEL_FLASK,$IN_LABEL_BERT \
   --train_adj=$MAGRET_DIR \
-  --eval_file=$MAGRET_DIR/${PREFIX_KERAS}_tk_val.txt,$MAGRET_DIR/${PREFIX_PYTORCH}_tk_val.txt,$MAGRET_DIR/${PREFIX_SKLEARN}_tk_val.txt \
-  --eval_labels=$MAGRET_DIR/${PREFIX_KERAS}_label_val.txt,$MAGRET_DIR/${PREFIX_PYTORCH}_label_val.txt,$MAGRET_DIR/${PREFIX_SKLEARN}_label_val.txt \
+  --eval_file=$IN_VAL_KERAS,$IN_VAL_SKLEARN,$IN_VAL_PYTORCH,$IN_VAL_ANSIBLE,$IN_VAL_REQUESTS,$IN_VAL_DJANGO,$IN_VAL_HTTPIE,$IN_VAL_YT,$IN_VAL_FLASK,$IN_VAL_BERT \
+  --eval_labels=$IN_LABEL_VAL_KERAS,$IN_LABEL_VAL_SKLEARN,$IN_LABEL_VAL_PYTORCH,$IN_LABEL_VAL_ANSIBLE,$IN_LABEL_VAL_REQUESTS,$IN_LABEL_VAL_DJANGO,$IN_LABEL_VAL_HTTPIE,$IN_LABEL_VAL_YT,$IN_LABEL_VAL_FLASK,$IN_LABEL_VAL_BERT \
   --eval_adj=$MAGRET_DIR \
   --data_dir=$MAGRET_DIR \
-  --output_dir=$MAGRET_DIR/cls_output-methodname\
+  --output_dir=$MAGRET_DIR/cls_output-methodname-lg2 \
   --max_seq_length=64 \
   --train_batch_size=16 \
-  --learning_rate=1e-6 \
-  --num_train_epochs=200 \
-  --save_checkpoints_steps=500 \
-  --init_checkpoint=$PRETRAIN_DIR/pretraining_output-200k/model.ckpt-200000 \
-  --bert_config_file=$PRETRAIN_DIR/large_config.json \
+  --learning_rate=1e-4 \
+  --num_train_epochs=150 \
+  --save_checkpoints_steps=1000 \
+  --bert_config_file=$PRETRAIN_DIR/shallow_config.json \
   --sparse_adj=True \
-  --adj_prefix=${PREFIX_KERAS},${PREFIX_PYTORCH},${PREFIX_SKLEARN} \
-   --clean_data=True \
+  --adj_prefix=$KERAS_PREFIX,$SKLEARN_PREFIX,$PYTORCH_PREFIX,$ANSIBLE_PREFIX,$REQUESTS_PREFIX,$DJANGO_PREFIX,$HTTPIE_PREFIX,$YT_PREFIX,$FLASK_PREFIX,$BERT_PREFIX \
+  --clean_data=True \
 #  --shuffle=True
+
+

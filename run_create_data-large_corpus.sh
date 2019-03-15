@@ -1,6 +1,7 @@
 MAGRET_DIR="large-corpus"
-MODE="methodname"
-SUFFIX="methodname_"
+MODE="varname"
+#MODE="funcdef"
+SUFFIX="varnname_"
 
 
 PREFIX_KERAS="keras"
