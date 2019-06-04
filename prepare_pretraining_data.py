@@ -240,7 +240,7 @@ def create_training_instances_with_adj(input_files, adj_files, tokenizer, max_se
     adj_files_ = [f for f in os.listdir(adj_files) if re.match(r'.*_'+FLAGS.adj_prefix+suffix+'.mtx', f)]
     adj_files_ = sorted(adj_files_, key = lambda x: (int(re.sub('\D','',x)),x))
     for f in adj_files_:
-      print(adj_files, f, FLAGS.adj_prefix+suffix+'.mtx')
+      #print(adj_files, f, FLAGS.adj_prefix+suffix+'.mtx')
       m = io.mmread(os.path.join(adj_files, f))
       adj = list(m.toarray())
       all_adjs.append(adj)
@@ -271,10 +271,13 @@ def create_training_instances_with_adj(input_files, adj_files, tokenizer, max_se
   instances = []
   for _ in range(dupe_factor):
     for document_index in range(len(all_documents)):
-      instances.extend(
-          create_instances_from_document_with_adj(
-              all_documents, all_adjs, document_index, max_seq_length, short_seq_prob,
-              masked_lm_prob, max_predictions_per_seq, vocab_words, rng))
+      if document_index < 30000:
+        instances.extend(
+            create_instances_from_document_with_adj(
+                all_documents, all_adjs, document_index, max_seq_length, short_seq_prob,
+                masked_lm_prob, max_predictions_per_seq, vocab_words, rng))
+      else:
+        break 
 
   rng.shuffle(instances)
   return instances
@@ -445,6 +448,9 @@ def create_instances_from_document_with_adj(
     all_documents, all_adjs, document_index, max_seq_length, short_seq_prob,
     masked_lm_prob, max_predictions_per_seq, vocab_words, rng):
   """Creates `TrainingInstance`s for a single document."""
+  print(document_index)
+  if document_index > 36617:
+     return [] 
   document = all_documents[document_index]
   adjacency = all_adjs[document_index]
 
@@ -500,7 +506,7 @@ def create_instances_from_document_with_adj(
         segment_ids = []
         # tokens.append("[CLS]")
         # segment_ids.append(0)
-        print(tokens_a)
+        #print(tokens_a)
         for token in tokens_a:
           tokens.append(token)
           segment_ids.append(0)
@@ -623,6 +629,8 @@ def main(_):
     for adj_pattern in FLAGS.adj_file.split(","):
       adj_files.extend(tf.gfile.Glob(adj_pattern))
 
+  tf.logging.info("*** Reading from vocab file ***")
+  tf.logging.info("  %s", FLAGS.vocab_file)
   tf.logging.info("*** Reading from input files ***")
   for input_file in input_files:
     tf.logging.info("  %s", input_file)

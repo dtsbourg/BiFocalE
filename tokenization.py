@@ -137,7 +137,12 @@ def convert_by_vocab(vocab, items):
   """Converts a sequence of [tokens|ids] using the vocab."""
   output = []
   for item in items:
-    output.append(vocab[item])
+    try:
+      output.append(vocab[item])
+    except:
+      output.append(-1)
+      print(item)
+      pass
   return output
 
 
@@ -383,7 +388,8 @@ def _is_punctuation(char):
   """Checks whether `chars` is a punctuation character."""
   cp = ord(char)
   # DO not consider "-" or "_" as punctuation
-  if (cp == 45) or (cp==95):
+  return False
+  if (cp == 45) or (cp==95) or (cp==36) or (cp==58):
       return False
   # We treat all non-letter/number ASCII as punctuation.
   # Characters such as "^", "$", and "`" are not in the Unicode
