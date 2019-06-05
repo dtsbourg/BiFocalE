@@ -1,4 +1,4 @@
-MAGRET_DIR="mid-corpus"
+BIFOCALE_DIR="mid-corpus"
 
 
 PREFIX="_methodname_split_magret"
@@ -9,21 +9,21 @@ KERAS_PREFIX="keras${PREFIX}"
 SKLEARN_PREFIX="sklearn${PREFIX}"
 #PYTORCH_PREFIX="pytorch${PREFIX}"
 
-IN_KERAS=$MAGRET_DIR/${KERAS_PREFIX}_tk.txt
-IN_SKLEARN=$MAGRET_DIR/${SKLEARN_PREFIX}_tk.txt
-#IN_PYTORCH=$MAGRET_DIR/${PYTORCH_PREFIX}_tk.txt
+IN_KERAS=$BIFOCALE_DIR/${KERAS_PREFIX}_tk.txt
+IN_SKLEARN=$BIFOCALE_DIR/${SKLEARN_PREFIX}_tk.txt
+#IN_PYTORCH=$BIFOCALE_DIR/${PYTORCH_PREFIX}_tk.txt
 
-IN_LABEL_KERAS=$MAGRET_DIR/${KERAS_PREFIX}_label.txt
-IN_LABEL_SKLEARN=$MAGRET_DIR/${SKLEARN_PREFIX}_label.txt
-#IN_LABEL_PYTORCH=$MAGRET_DIR/${PYTORCH_PREFIX}_label.txt
+IN_LABEL_KERAS=$BIFOCALE_DIR/${KERAS_PREFIX}_label.txt
+IN_LABEL_SKLEARN=$BIFOCALE_DIR/${SKLEARN_PREFIX}_label.txt
+#IN_LABEL_PYTORCH=$BIFOCALE_DIR/${PYTORCH_PREFIX}_label.txt
 
-IN_VAL_KERAS=$MAGRET_DIR/${KERAS_PREFIX}_tk_val.txt
-IN_VAL_SKLEARN=$MAGRET_DIR/${SKLEARN_PREFIX}_tk_val.txt
-#IN_VAL_PYTORCH=$MAGRET_DIR/${PYTORCH_PREFIX}_tk_val.txt
+IN_VAL_KERAS=$BIFOCALE_DIR/${KERAS_PREFIX}_tk_val.txt
+IN_VAL_SKLEARN=$BIFOCALE_DIR/${SKLEARN_PREFIX}_tk_val.txt
+#IN_VAL_PYTORCH=$BIFOCALE_DIR/${PYTORCH_PREFIX}_tk_val.txt
 
-IN_LABEL_VAL_KERAS=$MAGRET_DIR/${KERAS_PREFIX}_label_val.txt
-IN_LABEL_VAL_SKLEARN=$MAGRET_DIR/${SKLEARN_PREFIX}_label_val.txt
-#IN_LABEL_VAL_PYTORCH=$MAGRET_DIR/${PYTORCH_PREFIX}_label_val.txt
+IN_LABEL_VAL_KERAS=$BIFOCALE_DIR/${KERAS_PREFIX}_label_val.txt
+IN_LABEL_VAL_SKLEARN=$BIFOCALE_DIR/${SKLEARN_PREFIX}_label_val.txt
+#IN_LABEL_VAL_PYTORCH=$BIFOCALE_DIR/${PYTORCH_PREFIX}_label_val.txt
 
 
 PRETRAIN_DIR="mid-corpus"
@@ -37,16 +37,16 @@ python classifier.py \
   --max_nb_preds=100000 \
   --task_name=methodname \
   --init_checkpoint=$PRETRAIN_DIR/pretraining_output-300k/model.ckpt-500000 \
-  --label_vocab=$MAGRET_DIR/label_vocab.csv \
-  --vocab_file=$MAGRET_DIR/global_vocab.csv \
+  --label_vocab=$BIFOCALE_DIR/label_vocab.csv \
+  --vocab_file=$BIFOCALE_DIR/global_vocab.csv \
   --train_file=$IN_KERAS,$IN_SKLEARN \
   --train_labels=$IN_LABEL_KERAS,$IN_LABEL_SKLEARN \
-  --train_adj=$MAGRET_DIR \
+  --train_adj=$BIFOCALE_DIR \
   --eval_file=$IN_VAL_KERAS,$IN_VAL_SKLEARN \
   --eval_labels=$IN_LABEL_VAL_KERAS,$IN_LABEL_VAL_SKLEARN \
-  --eval_adj=$MAGRET_DIR \
-  --data_dir=$MAGRET_DIR \
-  --output_dir=$MAGRET_DIR/cls_output-methodname-2-nopt \
+  --eval_adj=$BIFOCALE_DIR \
+  --data_dir=$BIFOCALE_DIR \
+  --output_dir=$BIFOCALE_DIR/cls_output-methodname-2-nopt \
   --max_seq_length=64 \
   --train_batch_size=16 \
   --learning_rate=1e-4 \

@@ -1,4 +1,4 @@
-MAGRET_DIR="large-corpus"
+BIFOCALE_DIR="large-corpus"
 MODE="varname"
 #MODE="funcdef"
 SUFFIX="varnname_"
@@ -22,9 +22,9 @@ do
   echo "$prefix"
 
   python create_pretraining_data.py \
-    --path=$MAGRET_DIR/data/ \
+    --path=$BIFOCALE_DIR/data/ \
     --prefix=$prefix \
-    --out_path=$MAGRET_DIR \
+    --out_path=$BIFOCALE_DIR \
     --mode=$MODE \
     --pre=${prefix}_${SUFFIX} \
     --nb_snippets=100000 \

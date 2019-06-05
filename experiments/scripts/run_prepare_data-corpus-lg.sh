@@ -1,4 +1,4 @@
-MAGRET_DIR="large-corpus"
+BIFOCALE_DIR="large-corpus"
 PREFIX="_mlm_split_magret"
 ADJ_PREFIX="_lg_corpus"
 SUFFIX="_mlm_large"
@@ -16,27 +16,27 @@ PREFIX_FLASK="flask${PREFIX}"
 PREFIX_BERT="bert${PREFIX}"
 
 
-IN_KERAS=$MAGRET_DIR/${KERAS_PREFIX}_tk.txt
-IN_SKLEARN=$MAGRET_DIR/${SKLEARN_PREFIX}_tk.txt
-IN_PYTORCH=$MAGRET_DIR/${PYTORCH_PREFIX}_tk.txt
-IN_ANSIBLE=$MAGRET_DIR/${ANSIBLE_PREFIX}_tk.txt
-IN_REQUESTS=$MAGRET_DIR/${REQUESTS_PREFIX}_tk.txt
-IN_DJANGO=$MAGRET_DIR/${DJANGO_PREFIX}_tk.txt
-IN_HTTPIE=$MAGRET_DIR/${HTTPIE_PREFIX}_tk.txt
-IN_YT=$MAGRET_DIR/${YT_PREFIX}_tk.txt
-IN_FLASK=$MAGRET_DIR/${FLASK_PREFIX}_tk.txt
-IN_BERT=$MAGRET_DIR/${BERT_PREFIX}_tk.txt
+IN_KERAS=$BIFOCALE_DIR/${KERAS_PREFIX}_tk.txt
+IN_SKLEARN=$BIFOCALE_DIR/${SKLEARN_PREFIX}_tk.txt
+IN_PYTORCH=$BIFOCALE_DIR/${PYTORCH_PREFIX}_tk.txt
+IN_ANSIBLE=$BIFOCALE_DIR/${ANSIBLE_PREFIX}_tk.txt
+IN_REQUESTS=$BIFOCALE_DIR/${REQUESTS_PREFIX}_tk.txt
+IN_DJANGO=$BIFOCALE_DIR/${DJANGO_PREFIX}_tk.txt
+IN_HTTPIE=$BIFOCALE_DIR/${HTTPIE_PREFIX}_tk.txt
+IN_YT=$BIFOCALE_DIR/${YT_PREFIX}_tk.txt
+IN_FLASK=$BIFOCALE_DIR/${FLASK_PREFIX}_tk.txt
+IN_BERT=$BIFOCALE_DIR/${BERT_PREFIX}_tk.txt
 
-IN_VAL_KERAS=$MAGRET_DIR/${KERAS_PREFIX}_tk_val.txt
-IN_VAL_SKLEARN=$MAGRET_DIR/${SKLEARN_PREFIX}_tk_val.txt
-IN_VAL_PYTORCH=$MAGRET_DIR/${PYTORCH_PREFIX}_tk_val.txt
-IN_VAL_ANSIBLE=$MAGRET_DIR/${ANSIBLE_PREFIX}_tk_val.txt
-IN_VAL_REQUESTS=$MAGRET_DIR/${REQUESTS_PREFIX}_tk_val.txt
-IN_VAL_DJANGO=$MAGRET_DIR/${DJANGO_PREFIX}_tk_val.txt
-IN_VAL_HTTPIE=$MAGRET_DIR/${HTTPIE_PREFIX}_tk_val.txt
-IN_VAL_YT=$MAGRET_DIR/${YT_PREFIX}_tk_val.txt
-IN_VAL_FLASK=$MAGRET_DIR/${FLASK_PREFIX}_tk_val.txt
-IN_VAL_BERT=$MAGRET_DIR/${BERT_PREFIX}_tk_val.txt
+IN_VAL_KERAS=$BIFOCALE_DIR/${KERAS_PREFIX}_tk_val.txt
+IN_VAL_SKLEARN=$BIFOCALE_DIR/${SKLEARN_PREFIX}_tk_val.txt
+IN_VAL_PYTORCH=$BIFOCALE_DIR/${PYTORCH_PREFIX}_tk_val.txt
+IN_VAL_ANSIBLE=$BIFOCALE_DIR/${ANSIBLE_PREFIX}_tk_val.txt
+IN_VAL_REQUESTS=$BIFOCALE_DIR/${REQUESTS_PREFIX}_tk_val.txt
+IN_VAL_DJANGO=$BIFOCALE_DIR/${DJANGO_PREFIX}_tk_val.txt
+IN_VAL_HTTPIE=$BIFOCALE_DIR/${HTTPIE_PREFIX}_tk_val.txt
+IN_VAL_YT=$BIFOCALE_DIR/${YT_PREFIX}_tk_val.txt
+IN_VAL_FLASK=$BIFOCALE_DIR/${FLASK_PREFIX}_tk_val.txt
+IN_VAL_BERT=$BIFOCALE_DIR/${BERT_PREFIX}_tk_val.txt
 
 declare -a in_val_files=($IN_VAL_KERAS $IN_VAL_SKLEARN $IN_VAL_PYTORCH $IN_VAL_ANSIBLE $IN_VAL_REQUESTS $IN_VAL_DJANGO $IN_VAL_HTTPIE $IN_VAL_YT $IN_VAL_FLASK $IN_VAL_BERT)
 #declare -a in_prefixes=($PREFIX_KERAS $PREFIX_SKLEARN $PREFIX_PYTORCH $PREFIX_ANSIBLE $PREFIX_REQUESTS $PREFIX_DJANGO $PREFIX_HTTPIE $PREFIX_YT $PREFIX_FLASK $PREFIX_BERT)
@@ -48,10 +48,10 @@ do
   echo "$prefix"
 
   python prepare_pretraining_data.py \
-    --input_file=$MAGRET_DIR/${prefix}_tk.txt \
-    --output_file=$MAGRET_DIR/tf_examples${prefix}.tfrecord \
-    --vocab_file=$MAGRET_DIR/$VOCAB \
-    --adj_file=$MAGRET_DIR/adj/ \
+    --input_file=$BIFOCALE_DIR/${prefix}_tk.txt \
+    --output_file=$BIFOCALE_DIR/tf_examples${prefix}.tfrecord \
+    --vocab_file=$BIFOCALE_DIR/$VOCAB \
+    --adj_file=$BIFOCALE_DIR/adj/ \
     --do_lower_case=True \
     --max_seq_length=64 \
     --max_predictions_per_seq=1 \
@@ -63,10 +63,10 @@ do
     --is_training=True
 
   python prepare_pretraining_data.py \
-    --input_file=$MAGRET_DIR/${prefix}_tk_val.txt \
-    --output_file=$MAGRET_DIR/tf_examples_val${prefix}.tfrecord \
-    --vocab_file=$MAGRET_DIR/$VOCAB \
-    --adj_file=$MAGRET_DIR/adj/ \
+    --input_file=$BIFOCALE_DIR/${prefix}_tk_val.txt \
+    --output_file=$BIFOCALE_DIR/tf_examples_val${prefix}.tfrecord \
+    --vocab_file=$BIFOCALE_DIR/$VOCAB \
+    --adj_file=$BIFOCALE_DIR/adj/ \
     --do_lower_case=True \
     --max_seq_length=64 \
     --max_predictions_per_seq=1 \

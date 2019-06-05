@@ -1,14 +1,14 @@
-MAGRET_DIR="graph_cls"
+BIFOCALE_DIR="graph_cls"
 PREFIX="MSRC_9"
 SUFFIX="_MSRC_9"
 #PREFIX_KERAS="keras_mlm_split_magret_"
 #PREFIX_SKLEARN="sklearn_mlm_split_magret_"
 
 python prepare_pretraining_data.py \
-  --input_file=$MAGRET_DIR/${PREFIX}_tk.txt \
-  --output_file=$MAGRET_DIR/tf_examples${SUFFIX}.tfrecord \
-  --vocab_file=$MAGRET_DIR/${PREFIX}-vocab.txt \
-  --adj_file=$MAGRET_DIR/adj/ \
+  --input_file=$BIFOCALE_DIR/${PREFIX}_tk.txt \
+  --output_file=$BIFOCALE_DIR/tf_examples${SUFFIX}.tfrecord \
+  --vocab_file=$BIFOCALE_DIR/${PREFIX}-vocab.txt \
+  --adj_file=$BIFOCALE_DIR/adj/ \
   --do_lower_case=True \
   --max_seq_length=128 \
   --max_predictions_per_seq=1 \
@@ -20,10 +20,10 @@ python prepare_pretraining_data.py \
   --is_training=True
 
 python prepare_pretraining_data.py \
-  --input_file=$MAGRET_DIR/${PREFIX}_tk_val.txt \
-  --output_file=$MAGRET_DIR/tf_examples_val${SUFFIX}.tfrecord \
-  --vocab_file=$MAGRET_DIR/${PREFIX}-vocab.txt \
-  --adj_file=$MAGRET_DIR/adj/ \
+  --input_file=$BIFOCALE_DIR/${PREFIX}_tk_val.txt \
+  --output_file=$BIFOCALE_DIR/tf_examples_val${SUFFIX}.tfrecord \
+  --vocab_file=$BIFOCALE_DIR/${PREFIX}-vocab.txt \
+  --adj_file=$BIFOCALE_DIR/adj/ \
   --do_lower_case=True \
   --max_seq_length=128 \
   --max_predictions_per_seq=1 \

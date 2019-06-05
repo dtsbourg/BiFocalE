@@ -1,4 +1,4 @@
-MAGRET_DIR="graph_cls"
+BIFOCALE_DIR="graph_cls"
 PREFIX="MSRC_21"
 PRETRAIN_DIR="graph_cls"
 
@@ -10,16 +10,16 @@ python classifier.py \
   --do_predict=True \
   --max_nb_preds=1009 \
   --task_name=methodname \
-  --label_vocab=$MAGRET_DIR/${PREFIX}-vocab_label.txt \
-  --vocab_file=$MAGRET_DIR/${PREFIX}-vocab.txt \
-  --train_file=$MAGRET_DIR/${PREFIX}_cls_tk.txt \
-  --train_labels=$MAGRET_DIR/${PREFIX}_label.txt \
-  --train_adj=$MAGRET_DIR \
-  --eval_file=$MAGRET_DIR/${PREFIX}_cls_tk_val.txt \
-  --eval_labels=$MAGRET_DIR/${PREFIX}_label_val.txt \
-  --eval_adj=$MAGRET_DIR \
-  --data_dir=$MAGRET_DIR \
-  --output_dir=$MAGRET_DIR/cls_output-no-lm-${PREFIX} \
+  --label_vocab=$BIFOCALE_DIR/${PREFIX}-vocab_label.txt \
+  --vocab_file=$BIFOCALE_DIR/${PREFIX}-vocab.txt \
+  --train_file=$BIFOCALE_DIR/${PREFIX}_cls_tk.txt \
+  --train_labels=$BIFOCALE_DIR/${PREFIX}_label.txt \
+  --train_adj=$BIFOCALE_DIR \
+  --eval_file=$BIFOCALE_DIR/${PREFIX}_cls_tk_val.txt \
+  --eval_labels=$BIFOCALE_DIR/${PREFIX}_label_val.txt \
+  --eval_adj=$BIFOCALE_DIR \
+  --data_dir=$BIFOCALE_DIR \
+  --output_dir=$BIFOCALE_DIR/cls_output-no-lm-${PREFIX} \
   --max_seq_length=128 \
   --train_batch_size=32 \
   --learning_rate=1e-4 \

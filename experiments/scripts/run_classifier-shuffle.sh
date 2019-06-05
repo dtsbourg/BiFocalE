@@ -1,4 +1,4 @@
-MAGRET_DIR="sparse"
+BIFOCALE_DIR="sparse"
 PREFIX="sparse_fname2_split_magret"
 PRETRAIN_DIR="sparse"
 
@@ -10,16 +10,16 @@ python classifier.py \
   --do_predict=True \
   --max_nb_preds=1000 \
   --task_name=methodname \
-  --label_vocab=$MAGRET_DIR/sparse_fname2_vocab-label.txt \
-  --vocab_file=$MAGRET_DIR/sparse_tmp_vocab-code.txt \
-  --train_file=$MAGRET_DIR/${PREFIX}_tk.txt \
-  --train_labels=$MAGRET_DIR/${PREFIX}_label.txt \
-  --train_adj=$MAGRET_DIR \
-  --eval_file=$MAGRET_DIR/${PREFIX}_tk_val.txt \
-  --eval_labels=$MAGRET_DIR/${PREFIX}_label_val.txt \
-  --eval_adj=$MAGRET_DIR \
-  --data_dir=$MAGRET_DIR \
-  --output_dir=$MAGRET_DIR/cls_output-shuffle-new\
+  --label_vocab=$BIFOCALE_DIR/sparse_fname2_vocab-label.txt \
+  --vocab_file=$BIFOCALE_DIR/sparse_tmp_vocab-code.txt \
+  --train_file=$BIFOCALE_DIR/${PREFIX}_tk.txt \
+  --train_labels=$BIFOCALE_DIR/${PREFIX}_label.txt \
+  --train_adj=$BIFOCALE_DIR \
+  --eval_file=$BIFOCALE_DIR/${PREFIX}_tk_val.txt \
+  --eval_labels=$BIFOCALE_DIR/${PREFIX}_label_val.txt \
+  --eval_adj=$BIFOCALE_DIR \
+  --data_dir=$BIFOCALE_DIR \
+  --output_dir=$BIFOCALE_DIR/cls_output-shuffle-new\
   --max_seq_length=64 \
   --train_batch_size=16 \
   --learning_rate=1e-4 \
